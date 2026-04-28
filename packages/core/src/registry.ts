@@ -87,6 +87,15 @@ export class Registry {
    * Resolve a relative-path require from inside a dynamic component.
    * Cross-component imports look up other components by name in the registry.
    * v1: we map "./Other" -> "Other" (basename, no extension).
+   *
+   * The returned value is a *lazy proxy module*: it has the same shape as
+   * a real CommonJS module (`{ default, ...rest }`), but every member is a
+   * React function component that re-resolves the target on each render.
+   * This means:
+   *   - Card can `require("./Hello")` at eval time even before Hello has
+   *     loaded — the proxy is returned immediately.
+   *   - When Hello actually arrives (or hot-swaps to a new version), Card's
+   *     next render automatically picks it up; no manual preload needed.
    */
   requireByPath(specifier: string): unknown {
     const base = specifier
@@ -97,14 +106,57 @@ export class Registry {
     if (!base) {
       throw new Error(`dynamico: cannot resolve relative require '${specifier}'`);
     }
-    const entry = this.entries.get(base);
-    if (!entry || !entry.factory) {
-      throw new Error(
-        `dynamico: cannot require './${base}' — component not loaded yet. ` +
-          `Render it via <DynamicComponent name="${base}"/> first, or preload via useDynamico.`,
-      );
+    if (!this.entries.has(base) && !this.inflight.has(base)) {
+      void this.ensure(base);
     }
-    return entry.factory;
+    return this.makeLazyProxy(base);
+  }
+
+  private lazyProxies = new Map<string, Record<string, unknown>>();
+
+  private makeLazyProxy(name: string): Record<string, unknown> {
+    const cached = this.lazyProxies.get(name);
+    if (cached) return cached;
+    const registry = this;
+    const proxy: Record<string, unknown> = {};
+    const make = (key: string) => {
+      const Comp = function LazyDynamic(props: Record<string, unknown>) {
+        const entry = registry.entries.get(name);
+        // Not loaded yet — render nothing. When the dependency arrives, the
+        // cross-dep notification in `notify()` refreshes our parent's entry,
+        // which causes useSyncExternalStore to re-render and we'll resolve
+        // for real on the next pass.
+        if (!entry || (!entry.factory && !entry.error)) return null;
+        if (entry.error) {
+          // Surface the dep error inline. Parent can wrap in errorFallback at
+          // its own level if it wants; we don't have access to it here.
+          return null;
+        }
+        const target = entry.factory?.[key];
+        if (typeof target !== "function") return null;
+        // The host-scope's React.createElement is what invoked us; we just
+        // call the real component function. props is what the parent passed.
+        return (target as (p: Record<string, unknown>) => unknown)(props);
+      };
+      Object.defineProperty(Comp, "name", { value: `Lazy(${name}.${key})` });
+      return Comp;
+    };
+    proxy.default = make("default");
+    // Allow named imports via Proxy: any key access returns a fresh lazy
+    // component bound to that key. Default is set above; everything else
+    // is created on demand.
+    const handler: ProxyHandler<Record<string, unknown>> = {
+      get(target, prop) {
+        if (typeof prop !== "string") return undefined;
+        if (prop in target) return target[prop];
+        const c = make(prop);
+        target[prop] = c;
+        return c;
+      },
+    };
+    const wrapped = new Proxy(proxy, handler);
+    this.lazyProxies.set(name, wrapped);
+    return wrapped;
   }
 
   /**
@@ -148,6 +200,21 @@ export class Registry {
     const set = this.listeners.get(name);
     if (set) for (const l of set) l(entry);
     for (const l of this.anyListeners) l(entry);
+
+    // A new/updated component may be a dependency of others that are already
+    // mounted via lazy proxies. For v1 we don't track an explicit dep graph;
+    // instead we notify every other subscribed name with a *fresh entry
+    // object* (same content, new identity) so that useSyncExternalStore
+    // picks up the change and React re-renders, which causes the lazy
+    // proxy's render path to re-resolve the now-loaded dependency.
+    for (const [otherName, listeners] of this.listeners) {
+      if (otherName === name) continue;
+      const other = this.entries.get(otherName);
+      if (!other) continue;
+      const refreshed: RegistryEntry = { ...other };
+      this.entries.set(otherName, refreshed);
+      for (const l of listeners) l(refreshed);
+    }
   }
 }
 
