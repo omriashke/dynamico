@@ -1,0 +1,10 @@
+{
+  "expo": {
+    "name": "dynamico-expo-host",
+    "slug": "dynamico-expo-host",
+    "version": "0.0.0",
+    "orientation": "portrait",
+    "platforms": ["ios", "android", "web"],
+    "userInterfaceStyle": "automatic"
+  }
+}

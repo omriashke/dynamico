@@ -1,0 +1,76 @@
+direction: right
+
+authoring: Authoring {
+  direction: down
+  dev: Developer
+  files: "Dedicated directory\n*.tsx files"
+  cli: "@dynamico/cli\n(watcher + uploader)"
+  dev -> files: edits
+  files -> cli: chokidar watch
+}
+
+registry: Registry {
+  direction: down
+  http: "HTTP\nPOST /upload\nGET /component/:name"
+  compile: "compile.ts\nBabel: ts + react(classic) + env"
+  store: "Store\nname -> {version, code | error}"
+  ws: "WebSocket\n/subscribe broadcast"
+  http -> compile
+  compile -> store
+  store -> ws
+}
+
+runtime: Runtime {
+  direction: right
+
+  core: "@dynamico/core" {
+    direction: down
+    remote: "remote source\nfetch + WS subscribe"
+    reg: "Registry\nname -> {version, factory | error}"
+    loader: "loader.ts\nnew Function + require(scope)"
+    rt: "createRuntime\nProvider, DynamicComponent,\nuseDynamico, ErrorBoundary"
+    remote -> reg: "{name, version, code|error}"
+    reg -> loader: ingest
+    loader -> reg: factory
+    reg -> rt: subscribe
+  }
+
+  web: "@dynamico/web" {
+    direction: down
+    scope_w: "defaultScope\n{ react }"
+    api_w: "DynamicoProvider\nDynamicComponent"
+    scope_w -> api_w
+  }
+
+  native: "@dynamico/native (Expo)" {
+    direction: down
+    scope_n: "defaultScope\n{ react, react-native }"
+    api_n: "DynamicoProvider\nDynamicComponent"
+    scope_n -> api_n
+  }
+
+  core -> web: createRuntime(scope)
+  core -> native: createRuntime(scope)
+}
+
+apps: Host Apps {
+  direction: down
+  webhost: "Web host\n(Vite + React DOM)"
+  expohost: "Expo host\n(React Native)"
+}
+
+authoring.cli -> registry.http: "POST tsx"
+registry.ws -> runtime.core.remote: "push updates"
+registry.http -> runtime.core.remote: "GET initial"
+runtime.web -> apps.webhost: powers
+runtime.native -> apps.expohost: powers
+
+authoring -> registry: "" {
+  style.opacity: 0
+}
+registry -> runtime: "" {
+  style.opacity: 0
+}
+runtime -> apps: "" {
+  style.opacity: 0
+}

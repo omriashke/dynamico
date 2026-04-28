@@ -1,0 +1,25 @@
+{
+  "name": "@dynamico/cli",
+  "version": "0.0.0",
+  "description": "Dynamico dev tooling: watches a components directory and pushes changes to a registry server.",
+  "type": "module",
+  "main": "./dist/bin.js",
+  "types": "./dist/bin.d.ts",
+  "bin": {
+    "dynamico": "./dist/bin.js"
+  },
+  "files": ["dist", "src"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dev": "tsx watch src/bin.ts"
+  },
+  "dependencies": {
+    "chokidar": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.16.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.3"
+  }
+}
