@@ -14,9 +14,12 @@ export async function dev(opts: DevOptions): Promise<void> {
   log(`watching ${dir}`);
   log(`registry ${registryUrl}`);
 
-  const watcher = chokidar.watch(`${dir}/**/*.{tsx,jsx,ts,js}`, {
+  // chokidar v4 dropped glob support: watch the directory recursively and
+  // filter by extension ourselves in the upload handler.
+  const watcher = chokidar.watch(dir, {
     ignoreInitial: false,
-    ignored: ["**/node_modules/**", "**/.git/**", "**/dist/**"],
+    ignored: (path) =>
+      /(?:^|[\\/])(node_modules|\.git|dist)(?:[\\/]|$)/.test(path),
   });
 
   const upload = async (file: string) => {
