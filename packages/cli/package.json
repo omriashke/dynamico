@@ -1,7 +1,8 @@
 {
   "name": "@dynamico/cli",
-  "version": "0.0.0",
-  "description": "Dynamico dev tooling: watches a components directory and pushes changes to a registry server.",
+  "version": "0.1.0",
+  "description": "CLI for dynamico: push, pull, list, search, edit, and remove components from a live registry.",
+  "license": "Apache-2.0",
   "type": "module",
   "main": "./dist/bin.js",
   "types": "./dist/bin.d.ts",
@@ -9,6 +10,16 @@
     "dynamico": "./dist/bin.js"
   },
   "files": ["dist", "src", "skill"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/omriaskenazi/dynamico.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/omriaskenazi/dynamico#readme",
+  "keywords": ["react", "runtime", "dynamic-components", "dynamico", "cli"],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",

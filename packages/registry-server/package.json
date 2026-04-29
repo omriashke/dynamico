@@ -1,7 +1,8 @@
 {
   "name": "@dynamico/registry-server",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Reference registry for dynamico: compiles tsx, stores versions, broadcasts updates over WebSocket.",
+  "license": "Apache-2.0",
   "type": "module",
   "main": "./dist/server.js",
   "types": "./dist/server.d.ts",
@@ -22,6 +23,16 @@
     "dist",
     "src"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/omriaskenazi/dynamico.git",
+    "directory": "packages/registry-server"
+  },
+  "homepage": "https://github.com/omriaskenazi/dynamico#readme",
+  "keywords": ["react", "runtime", "dynamic-components", "dynamico", "registry", "server"],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
