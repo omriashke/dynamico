@@ -1,4 +1,5 @@
-import type { CompiledModule } from "@dynamico/core";
+import type { CompiledModule, CompiledModuleRemoved } from "@dynamico/core";
+import { createHash } from "node:crypto";
 
 export type StoreListener = (module: CompiledModule) => void;
 
@@ -13,6 +14,20 @@ export class Store {
     this.modules.set(module.name, module);
     for (const l of this.listeners) l(module);
     return module;
+  }
+
+  /** Remove a component and broadcast a removal event. Returns the prior module if any. */
+  remove(name: string): CompiledModule | undefined {
+    const prev = this.modules.get(name);
+    if (!prev) return undefined;
+    this.modules.delete(name);
+    const event: CompiledModuleRemoved = {
+      name,
+      version: createHash("sha256").update(`removed:${name}:${Date.now()}`).digest("hex").slice(0, 16),
+      removed: true,
+    };
+    for (const l of this.listeners) l(event);
+    return prev;
   }
 
   get(name: string): CompiledModule | undefined {

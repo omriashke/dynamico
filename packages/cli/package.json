@@ -8,13 +8,14 @@
   "bin": {
     "dynamico": "./dist/bin.js"
   },
-  "files": ["dist", "src"],
+  "files": ["dist", "src", "skill"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "dev": "tsx watch src/bin.ts"
   },
   "dependencies": {
+    "@dynamico/core": "workspace:*",
     "chokidar": "^4.0.0"
   },
   "devDependencies": {

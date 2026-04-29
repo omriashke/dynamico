@@ -164,13 +164,29 @@ export class Registry {
    * error), update the entry, and notify listeners.
    */
   private ingest(name: string, module: import("./types.js").CompiledModule): RegistryEntry {
+    if (module.removed) {
+      this.entries.delete(name);
+      this.lazyProxies.delete(name);
+      const removalEntry: RegistryEntry = {
+        name,
+        version: module.version,
+        error: {
+          kind: "load",
+          name,
+          version: module.version,
+          message: `'${name}' was removed from the registry`,
+        },
+      };
+      this.notify(name, removalEntry);
+      return removalEntry;
+    }
     let entry: RegistryEntry;
     if (module.error) {
       entry = {
         name,
         version: module.version,
         error: {
-          kind: "compile",
+          kind: module.error.kind === "typecheck" ? "load" : "compile",
           name,
           version: module.version,
           message: module.error.message,

@@ -1,10 +1,9 @@
 import { transformAsync } from "@babel/core";
 import { createRequire } from "node:module";
 import { createHash } from "node:crypto";
-import type { CompiledModule } from "@dynamico/core";
+import type { CompiledModule, Diagnostic } from "@dynamico/core";
+import { typecheck } from "./typecheck.js";
 
-// Resolve presets relative to *this* package, regardless of where the registry
-// is invoked from (avoids issues with strict pnpm hoisting).
 const requireFromHere = createRequire(import.meta.url);
 const presetEnv = requireFromHere.resolve("@babel/preset-env");
 const presetReact = requireFromHere.resolve("@babel/preset-react");
@@ -14,16 +13,27 @@ const presetTypeScript = requireFromHere.resolve("@babel/preset-typescript");
  * Compile a single .tsx/.jsx source string to a CommonJS-style function body
  * that the client's loader will run via `new Function(module, exports, require, code)`.
  *
- * We intentionally use:
+ * We run validation in two phases:
+ *   1) typecheck() — TypeScript syntax/sanity check, produces structured
+ *      diagnostics with file/line/column. This is what the agent really wants.
+ *   2) Babel transform — strips types and downlevels JSX. Babel errors are
+ *      converted into a single diagnostic whose location we parse from the
+ *      message when possible.
+ *
+ * Presets:
  *   - preset-typescript: strip types
- *   - preset-react with the *classic* runtime so the compiled output uses
- *     React.createElement (a single host binding) rather than imports from
- *     react/jsx-runtime. This is the most portable choice for Hermes/Expo
- *     and keeps the client-side host scope minimal.
- *   - preset-env target: a conservative spec that Hermes supports
- *   - modules: "commonjs" so imports become require() calls our loader handles
+ *   - preset-react classic runtime: emits React.createElement (single host binding,
+ *     portable across Hermes/web)
+ *   - preset-env: conservative target, modules: commonjs so the client loader
+ *     can intercept require() calls.
  */
 export async function compile(name: string, source: string): Promise<CompiledModule> {
+  const tc = typecheck(name, source);
+  if (!tc.ok) {
+    return errorModule(name, "typecheck failed", undefined, tc.diagnostics, "typecheck");
+  }
+  const warnings = tc.diagnostics.filter((d) => d.severity === "warning");
+
   try {
     const result = await transformAsync(source, {
       filename: `${name}.tsx`,
@@ -41,18 +51,46 @@ export async function compile(name: string, source: string): Promise<CompiledMod
       return errorModule(name, "Babel produced no output");
     }
     const version = hash(code);
-    return { name, version, code };
+    return { name, version, code, warnings: warnings.length ? warnings : undefined };
   } catch (err) {
     const e = err instanceof Error ? err : new Error(String(err));
-    return errorModule(name, e.message, e.stack);
+    const diag = babelErrorToDiagnostic(e, source);
+    return errorModule(name, e.message, e.stack, [diag], "compile");
   }
 }
 
-function errorModule(name: string, message: string, stack?: string): CompiledModule {
+function babelErrorToDiagnostic(err: Error, source: string): Diagnostic {
+  // Babel errors look like: "/path/Foo.tsx: Unexpected token (3:7)\n..."
+  const m = /\((\d+):(\d+)\)/.exec(err.message);
+  let line: number | undefined;
+  let column: number | undefined;
+  let snippet: string | undefined;
+  if (m) {
+    line = Number(m[1]);
+    column = Number(m[2]) + 1;
+    snippet = source.split("\n")[line - 1];
+  }
+  return {
+    severity: "error",
+    message: err.message.split("\n")[0],
+    line,
+    column,
+    code: "BABEL",
+    snippet,
+  };
+}
+
+function errorModule(
+  name: string,
+  message: string,
+  stack?: string,
+  diagnostics?: Diagnostic[],
+  kind: "compile" | "typecheck" = "compile",
+): CompiledModule {
   return {
     name,
     version: hash(message + (stack ?? "")),
-    error: { kind: "compile", message, stack },
+    error: { kind, message, stack, diagnostics },
   };
 }
 

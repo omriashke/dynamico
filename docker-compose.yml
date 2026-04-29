@@ -1,0 +1,31 @@
+# Reference compose file for running the registry locally.
+#
+#   docker compose up --build
+#
+# Then point the CLI / your app at http://localhost:4000.
+#
+# In production, replace the `build:` stanza with `image: dynamico/registry-server:<tag>`
+# and set DYNAMICO_TOKEN (or basic auth / IP allow-list).
+
+services:
+  registry:
+    build:
+      context: .
+      dockerfile: packages/registry-server/Dockerfile
+    image: dynamico/registry-server:local
+    ports:
+      - "4000:4000"
+    # The image defaults DYNAMICO_SOURCE_DIR to /data/components. We mount a
+    # host directory there so source files + components.json persist across
+    # restarts and are editable from your editor or a git checkout.
+    volumes:
+      - ./data/components:/data/components
+    environment:
+      DYNAMICO_TOKEN: ${DYNAMICO_TOKEN:-}
+      DYNAMICO_BASIC_USER: ${DYNAMICO_BASIC_USER:-}
+      DYNAMICO_BASIC_PASSWORD: ${DYNAMICO_BASIC_PASSWORD:-}
+      DYNAMICO_ALLOW_IPS: ${DYNAMICO_ALLOW_IPS:-}
+      # Uncomment to put source somewhere else inside the container, e.g. a
+      # named volume. Remove entirely to run in legacy in-memory mode.
+      # DYNAMICO_SOURCE_DIR: /data/components
+    restart: unless-stopped

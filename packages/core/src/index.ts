@@ -4,6 +4,7 @@ export type {
   CompiledModule,
   CompiledModuleOk,
   CompiledModuleError,
+  CompiledModuleRemoved,
   ComponentFactory,
   RegistryEntry,
   RegistryListener,
@@ -11,6 +12,7 @@ export type {
   PropsSchema,
   PropsSchemaField,
   DynamicError,
+  Diagnostic,
   Version,
 } from "./types.js";
 

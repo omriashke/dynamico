@@ -1,0 +1,34 @@
+**/node_modules
+**/dist
+**/.turbo
+**/.next
+**/.expo
+**/.expo-shared
+**/coverage
+**/.cache
+
+# Build outputs that aren't useful inside the image.
+**/*.log
+**/.DS_Store
+**/.git
+**/.github
+**/.vscode
+**/.idea
+
+# Examples are not needed by the registry server image.
+examples
+
+# Other workspace packages we don't need for the server image. The Dockerfile
+# explicitly copies what it wants from packages/core and packages/registry-server.
+packages/cli
+packages/web
+packages/native
+
+# Diagrams + docs aren't needed inside the image.
+diagrams
+*.md
+!packages/registry-server/DOCKER.md
+
+# Local env files — never ship these.
+.env
+.env.*

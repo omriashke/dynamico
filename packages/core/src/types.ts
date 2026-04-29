@@ -9,11 +9,27 @@ export interface PropsSchemaField {
 
 export type PropsSchema = Record<string, PropsSchemaField>;
 
+export interface Diagnostic {
+  severity: "error" | "warning";
+  message: string;
+  /** 1-based line in the source. */
+  line?: number;
+  /** 1-based column. */
+  column?: number;
+  /** TypeScript or Babel diagnostic code, e.g. "TS2304". */
+  code?: string;
+  /** A short snippet of the offending line, when available. */
+  snippet?: string;
+}
+
 export interface CompiledModuleOk {
   name: string;
   version: Version;
   code: string;
+  /** Type-check warnings that didn't block compilation. */
+  warnings?: Diagnostic[];
   error?: undefined;
+  removed?: undefined;
 }
 
 export interface CompiledModuleError {
@@ -21,13 +37,27 @@ export interface CompiledModuleError {
   version: Version;
   code?: undefined;
   error: {
-    kind: "compile";
+    kind: "compile" | "typecheck";
     message: string;
     stack?: string;
+    diagnostics?: Diagnostic[];
   };
+  removed?: undefined;
 }
 
-export type CompiledModule = CompiledModuleOk | CompiledModuleError;
+/** A removal event broadcast over WS when DELETE /component/:name is called. */
+export interface CompiledModuleRemoved {
+  name: string;
+  version: Version;
+  removed: true;
+  code?: undefined;
+  error?: undefined;
+}
+
+export type CompiledModule =
+  | CompiledModuleOk
+  | CompiledModuleError
+  | CompiledModuleRemoved;
 
 export interface DynamicError {
   kind: "compile" | "load" | "render";
