@@ -122,3 +122,55 @@ export async function deleteComponent(opts: ClientOptions, name: string): Promis
   const data = (await res.json()) as { ok?: boolean; name?: string; error?: string };
   return { status: res.status, data };
 }
+
+export interface PatchMetaResponse {
+  ok?: boolean;
+  name?: string;
+  path?: string;
+  description?: string;
+  error?: string;
+}
+
+export async function patchMeta(
+  opts: ClientOptions,
+  name: string,
+  patch: { description?: string },
+): Promise<{ status: number; data: PatchMetaResponse }> {
+  const res = await fetch(
+    `${opts.registry.replace(/\/$/, "")}/component/${encodeURIComponent(name)}`,
+    {
+      method: "PATCH",
+      headers: { "content-type": "application/json", ...authHeaders(opts) },
+      body: JSON.stringify(patch),
+    },
+  );
+  const data = (await res.json()) as PatchMetaResponse;
+  return { status: res.status, data };
+}
+
+export interface ManifestShape {
+  version: 1;
+  components: Record<string, { path: string; description: string }>;
+}
+
+export interface ReplaceConfigResponse {
+  ok?: boolean;
+  added?: string[];
+  removed?: string[];
+  changed?: string[];
+  error?: string;
+  diagnostics?: string[];
+}
+
+export async function replaceConfig(
+  opts: ClientOptions,
+  body: ManifestShape,
+): Promise<{ status: number; data: ReplaceConfigResponse }> {
+  const res = await fetch(`${opts.registry.replace(/\/$/, "")}/config`, {
+    method: "PUT",
+    headers: { "content-type": "application/json", ...authHeaders(opts) },
+    body: JSON.stringify(body),
+  });
+  const data = (await res.json()) as ReplaceConfigResponse;
+  return { status: res.status, data };
+}

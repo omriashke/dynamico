@@ -6,8 +6,9 @@ host app.
 
 ## What it does
 
-1. The registry server owns a directory of `.tsx` files plus a
-   `components.json` manifest — **disk is the source of truth**.
+1. The registry server owns a directory of source files (`.tsx`, `.jsx`,
+   `.ts`, `.js`) plus a `dynamico.config.json` manifest — **disk is the
+   source of truth**.
 2. A CLI (`dynamico`) lets humans and agents `push` (write), `pull` (read,
    source or compiled), `list`, `search`, and `rm` components.
 3. The registry compiles `.tsx` → JS with Babel (after a TypeScript
@@ -139,30 +140,42 @@ truth**. The directory contains:
 
 ```
 <source dir>/
-├── components.json       # manifest maintained by the server
+├── dynamico.config.json  # manifest maintained by the server
 ├── Hello.tsx
 ├── Counter.tsx
-└── PrimaryButton.tsx
+└── forms/
+    └── PrimaryButton.tsx
 ```
 
-`components.json`:
+`dynamico.config.json`:
 
 ```json
 {
   "version": 1,
   "components": {
-    "Hello":         { "path": "Hello.tsx",         "description": "Simple greeting" },
-    "Counter":       { "path": "Counter.tsx",       "description": "Clickable counter, optional initial value" },
-    "PrimaryButton": { "path": "PrimaryButton.tsx", "description": "Blue call-to-action button" }
+    "Hello":         { "path": "Hello.tsx",               "description": "Simple greeting" },
+    "Counter":       { "path": "Counter.tsx",             "description": "Clickable counter, optional initial value" },
+    "PrimaryButton": { "path": "forms/PrimaryButton.tsx", "description": "Blue call-to-action button" }
   }
 }
 ```
 
-Every source change — whether it came from `dynamico push`, from editing a
-file directly in the mounted volume, or from `git pull` into that volume —
-goes through the same path: a filesystem watcher recompiles and broadcasts
-over WebSocket. You never hand-edit `components.json`; the server keeps it in
-sync with reality.
+Layout rules:
+
+- Recognized source extensions: `.tsx`, `.jsx`, `.ts`, `.js`. The first two
+  are the common case (React components); the last two are handy for
+  logic-only helpers (hooks, utilities) that a component imports via the
+  cross-component lazy proxy.
+- Subdirectories are allowed and used as authoring layout; **component names
+  are flat** (the basename of the file). `forms/PrimaryButton.tsx` is served
+  as `PrimaryButton`. Two files with the same basename in different folders
+  are a startup error.
+
+Every source change — from `dynamico push`, from editing a file directly in
+the mounted volume, or from `git pull` into that volume — goes through the
+same path: a recursive filesystem watcher recompiles and broadcasts over
+WebSocket. You never hand-edit `dynamico.config.json`; the server keeps it
+in sync with reality.
 
 Consequences:
 
@@ -244,11 +257,31 @@ dynamico push Hello --source ./src/components/Hello.tsx --token $TOKEN
 cat Hello.tsx | dynamico push Hello --stdin --token $TOKEN
 
 # bulk upload a whole directory in one request
+# (the directory must contain a dynamico.config.json at its root — see below)
 dynamico push _ --dir ./src/components --token $TOKEN
 
 # server-side validation only — does NOT write or store
 dynamico push Hello --dry-run --json --token $TOKEN
 ```
+
+`--dir` expects an explicit contract: which components to push, where each
+one lives, and an optional description per entry.
+
+```json
+{
+  "version": 1,
+  "components": {
+    "Hello":         { "path": "Hello.tsx",               "description": "Greeting banner" },
+    "PrimaryButton": { "path": "forms/PrimaryButton.tsx", "description": "CTA button"      }
+  }
+}
+```
+
+- `path` is relative to the dir you're pushing; it must end in `.tsx` or
+  `.jsx`. Subfolders are fine; component names stay flat.
+- Any manifest entry pointing at a missing file is a hard error.
+- Any `.tsx` / `.jsx` file on disk that's not in the manifest is reported
+  as a warning ("extra file") and skipped.
 
 When validation fails, the CLI prints classic compiler-style diagnostics:
 
@@ -291,7 +324,7 @@ dynamico list
 # Counter       abc1234567890abcd  ok   Clickable counter, optional initial value
 ```
 
-The description column is populated from `components.json`.
+The description column is populated from `dynamico.config.json`.
 
 ### `search` — ranked text match over names and descriptions
 
@@ -316,6 +349,31 @@ dynamico rm Hello
 
 The server broadcasts a removal event over the WebSocket; live clients unload
 the component immediately.
+
+### `edit` — change metadata without re-uploading source
+
+Two shapes:
+
+```bash
+# Update just the description. No source re-upload, no recompile.
+dynamico edit Hello --description "New, clearer description"
+
+# Replace the entire manifest from a local file. Entries dropped from the
+# file have their source files deleted on the registry side; paths and
+# descriptions are overwritten. Designed for git-style full-file pushes.
+dynamico edit --config ./dynamico.config.json
+```
+
+Replace semantics for `--config`:
+
+- Every referenced path must exist on disk in the registry's source dir and
+  must end in a supported extension. Validation failure (exit 3) is
+  all-or-nothing: nothing is written.
+- Entries removed from the file are deleted from disk and unloaded from the
+  store; live clients receive removal events.
+- Paths may change between runs — the registry renames/moves are your
+  responsibility. Adding a new entry that points at a file you haven't
+  uploaded yet will be rejected.
 
 ### Server auth
 

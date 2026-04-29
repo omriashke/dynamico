@@ -1,16 +1,25 @@
 import chokidar, { type FSWatcher } from "chokidar";
-import { readFile, readdir, stat, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, unlink, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { basename, extname, join, relative, resolve } from "node:path";
+import { basename, dirname, extname, join, relative, resolve, sep } from "node:path";
 import type { CompiledModule } from "@dynamico/core";
 import { compile } from "./compile.js";
-import { Manifest, type ManifestEntry } from "./manifest.js";
+import { Manifest, MANIFEST_NAME, type ManifestFile } from "./manifest.js";
 import type { Store } from "./store.js";
 
-const SOURCE_EXTS = [".tsx", ".jsx", ".ts", ".js"];
+/**
+ * File extensions recognized as dynamic-component source. `.tsx`/`.jsx` are
+ * the common case (React components); `.ts`/`.js` are allowed for
+ * logic-only helpers (hooks, utilities) that a component might import via
+ * the cross-component lazy proxy.
+ */
+export const SOURCE_EXTS = [".tsx", ".jsx", ".ts", ".js"] as const;
+type SourceExt = (typeof SOURCE_EXTS)[number];
+
+const IGNORED_DIRS = /(?:^|[\\/])(node_modules|\.git|dist|\.next|\.expo)(?:[\\/]|$)/;
 
 export interface SourceStoreOptions {
-  /** Absolute path to the directory holding source files + components.json. */
+  /** Absolute path to the directory holding source files + dynamico.config.json. */
   dir: string;
   /** Compiled-output store to fill. Same instance the HTTP routes read from. */
   store: Store;
@@ -26,13 +35,19 @@ export interface SourceStoreOptions {
 }
 
 /**
- * Owns the filesystem. On start, scans the configured directory for source
- * files, compiles each, and fills the shared Store. Then uses chokidar to
- * react to changes so subsequent edits (from any source — CLI, editor, a
- * mounted volume, git pull, etc.) get picked up automatically.
+ * Owns the filesystem. On start, walks the configured directory recursively
+ * for `.tsx` / `.jsx` files, compiles each, and fills the shared Store. Then
+ * uses chokidar to react to changes so subsequent edits — from the CLI, an
+ * editor, a mounted volume, a git pull — get picked up automatically.
  *
- * Also maintains components.json: every push updates the manifest;
- * out-of-band file additions/removals are reconciled on scan.
+ * Layout model (Option A): component *names* are flat — the registry key is
+ * the basename of the source file, irrespective of which subdirectory it
+ * lives in. Subfolders are an authoring convenience. Two files with the
+ * same basename in different folders are a startup error.
+ *
+ * Maintains dynamico.config.json: every push updates the manifest;
+ * out-of-band additions/removals are reconciled on scan and via watcher
+ * events.
  */
 export class FilesystemSourceStore {
   private dir: string;
@@ -49,15 +64,12 @@ export class FilesystemSourceStore {
     this.writeSettleMs = opts.writeSettleMs ?? 3000;
   }
 
-  /**
-   * Hydrate from disk and start watching. Safe to await — returns once the
-   * initial compile sweep is done so HTTP traffic can start being served.
-   */
   async start(): Promise<void> {
     if (!existsSync(this.dir)) {
       throw new Error(`DYNAMICO_SOURCE_DIR does not exist: ${this.dir}`);
     }
     this.manifest = await Manifest.load(this.dir);
+
     const files = await this.scan();
     const reconcile = await this.manifest.reconcile(files);
     if (reconcile.added.length) this.log(`manifest: added ${reconcile.added.join(", ")}`);
@@ -71,9 +83,10 @@ export class FilesystemSourceStore {
       ignoreInitial: true,
       ignored: (p) => {
         const b = basename(p);
-        if (b === "components.json") return true;
-        if (b === "components.json.tmp") return true;
-        return /(?:^|[\\/])(node_modules|\.git|dist)(?:[\\/]|$)/.test(p);
+        if (b === MANIFEST_NAME) return true;
+        if (b === `${MANIFEST_NAME}.tmp`) return true;
+        if (b.startsWith(".")) return true;
+        return IGNORED_DIRS.test(p);
       },
     });
     this.watcher.on("add", (p) => this.handleFileChange(p));
@@ -114,8 +127,10 @@ export class FilesystemSourceStore {
 
   /**
    * Write source to disk, upsert the manifest entry, and return the compiled
-   * artifact once the watcher finishes compiling. Used by POST /upload when
-   * a source directory is configured.
+   * artifact once the watcher finishes compiling. If the component already
+   * has a manifest entry, writes are directed at the manifest's `path`
+   * (preserving any subfolder layout); otherwise falls back to `${name}.tsx`
+   * at the root.
    */
   async write(
     name: string,
@@ -125,14 +140,14 @@ export class FilesystemSourceStore {
     validateName(name);
     const entry = this.manifest.get(name);
     const relPath = entry?.path ?? `${name}.tsx`;
+    ensureAllowedExtension(relPath);
     const abs = join(this.dir, relPath);
+    await mkdir(dirname(abs), { recursive: true });
     await writeFile(abs, source, "utf8");
     await this.manifest.upsert(name, {
       path: relPath,
       ...(description !== undefined ? { description } : {}),
     });
-    // The chokidar handler will pick this up and compile. We wait for that
-    // compile (or for the timeout) so the HTTP response can carry the result.
     return await this.awaitNextCompile(name);
   }
 
@@ -149,22 +164,159 @@ export class FilesystemSourceStore {
       }
     }
     await this.manifest.remove(name);
-    // Ensure the in-memory store reflects removal even if the watcher event
-    // is debounced or missed.
     this.store.remove(name);
     return true;
   }
 
-  /** Scan the source dir; returns Map<name, relPath>. */
+  /**
+   * Update just the metadata for one component (no source re-upload).
+   * Returns the updated entry or `undefined` if the component doesn't exist.
+   * The underlying source file is untouched and no recompile is triggered.
+   */
+  async patchMeta(
+    name: string,
+    patch: { description?: string },
+  ): Promise<{ name: string; path: string; description: string }> {
+    const entry = this.manifest.get(name);
+    if (!entry) {
+      throw Object.assign(new Error(`unknown component '${name}'`), { code: "NOT_FOUND" });
+    }
+    const next = await this.manifest.upsert(name, {
+      ...(patch.description !== undefined ? { description: patch.description } : {}),
+    });
+    return { name, ...next };
+  }
+
+  /**
+   * Current manifest as a serializable object. Used by `GET /config`.
+   */
+  snapshotConfig(): ManifestFile {
+    return this.manifest.snapshot();
+  }
+
+  /**
+   * Replace the entire manifest with `next`. Semantics:
+   *  - Every entry in `next` must point at an existing file on disk with an
+   *    allowed extension (`.tsx`/`.jsx`/`.ts`/`.js`).
+   *  - No two entries may share a basename (component names stay flat).
+   *  - Entries dropped from the manifest have their source files deleted and
+   *    are unloaded from the store (clients receive removal events via the
+   *    usual store.remove path).
+   *  - Kept/changed entries get recompiled if their path changed.
+   *
+   * On validation failure, nothing is written.
+   */
+  async replaceConfig(next: ManifestFile): Promise<{
+    added: string[];
+    removed: string[];
+    changed: string[];
+  }> {
+    const errors: string[] = [];
+    const seenBasenames = new Map<string, string>();
+    for (const [name, entry] of Object.entries(next.components ?? {})) {
+      if (!entry || typeof entry !== "object" || typeof entry.path !== "string") {
+        errors.push(`'${name}': missing path`);
+        continue;
+      }
+      if (!SOURCE_EXTS.includes(extname(entry.path) as SourceExt)) {
+        errors.push(`'${name}': path '${entry.path}' must end in ${SOURCE_EXTS.join("/")}`);
+      }
+      const abs = join(this.dir, entry.path);
+      if (!existsSync(abs)) {
+        errors.push(`'${name}': file '${entry.path}' does not exist`);
+      }
+      const base = basename(entry.path, extname(entry.path));
+      const other = seenBasenames.get(base);
+      if (other && other !== name) {
+        errors.push(`basename collision: '${name}' and '${other}' would both register as '${base}'`);
+      }
+      seenBasenames.set(base, name);
+    }
+    if (errors.length > 0) {
+      throw Object.assign(new Error("manifest validation failed"), {
+        code: "INVALID_CONFIG",
+        diagnostics: errors,
+      });
+    }
+
+    const prev = this.manifest.snapshot().components;
+    const diff = await this.manifest.replaceAll(next);
+
+    // Removed entries: delete their files; the watcher will also fire unlink
+    // and the Store will broadcast a removal, but we do it eagerly so the
+    // HTTP response doesn't return before cleanup starts.
+    for (const name of diff.removed) {
+      const rel = prev[name]?.path;
+      if (rel) {
+        const abs = join(this.dir, rel);
+        try {
+          if (existsSync(abs)) await unlink(abs);
+        } catch {
+          /* best effort */
+        }
+      }
+      this.store.remove(name);
+    }
+
+    // For added/changed entries, trigger a recompile from the new path.
+    await Promise.all(
+      [...diff.added, ...diff.changed].map((name) => {
+        const rel = next.components[name]!.path;
+        return this.compileAndStore(name, rel);
+      }),
+    );
+
+    return diff;
+  }
+
+  /**
+   * Recursive scan of the source dir. Returns Map<name, relPath>. Throws on
+   * basename collisions so the operator finds out at startup instead of
+   * later, when a file mysteriously masks another.
+   */
   private async scan(): Promise<Map<string, string>> {
     const out = new Map<string, string>();
-    const entries = await readdir(this.dir, { withFileTypes: true });
-    for (const e of entries) {
-      if (!e.isFile()) continue;
-      if (e.name === "components.json") continue;
-      if (!SOURCE_EXTS.includes(extname(e.name))) continue;
-      const name = basename(e.name, extname(e.name));
-      out.set(name, e.name);
+    const collisions: Record<string, string[]> = {};
+
+    const walk = async (abs: string, rel: string): Promise<void> => {
+      let entries;
+      try {
+        entries = await readdir(abs, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      for (const e of entries) {
+        if (e.name.startsWith(".")) continue;
+        if (e.name === MANIFEST_NAME) continue;
+        const childAbs = join(abs, e.name);
+        const childRel = rel ? `${rel}${sep}${e.name}` : e.name;
+        if (e.isDirectory()) {
+          if (IGNORED_DIRS.test(childRel)) continue;
+          await walk(childAbs, childRel);
+          continue;
+        }
+        if (!e.isFile()) continue;
+        const ext = extname(e.name);
+        if (!SOURCE_EXTS.includes(ext as SourceExt)) continue;
+        const name = basename(e.name, ext);
+        if (out.has(name)) {
+          (collisions[name] ??= [out.get(name)!]).push(childRel);
+        } else {
+          out.set(name, childRel);
+        }
+      }
+    };
+    await walk(this.dir, "");
+
+    const bad = Object.entries(collisions);
+    if (bad.length > 0) {
+      const details = bad
+        .map(([n, paths]) => `  ${n}: ${paths.join(", ")}`)
+        .join("\n");
+      throw new Error(
+        `duplicate component name(s) detected in ${this.dir}:\n${details}\n` +
+          "component names are flat; rename one of the files.",
+      );
     }
     return out;
   }
@@ -173,7 +325,7 @@ export class FilesystemSourceStore {
     const abs = join(this.dir, relPath);
     try {
       const source = await readFile(abs, "utf8");
-      const compiled = await compile(name, source);
+      const compiled = await compile(name, source, extname(relPath));
       this.store.set(compiled);
       if (compiled.error) {
         this.log(`compile error for ${name}: ${compiled.error.message}`);
@@ -185,10 +337,22 @@ export class FilesystemSourceStore {
 
   private async handleFileChange(absPath: string): Promise<void> {
     const rel = relative(this.dir, absPath);
-    if (!SOURCE_EXTS.includes(extname(rel))) return;
-    const name = basename(rel, extname(rel));
-    // Make sure the manifest knows about this file.
-    if (!this.manifest.get(name)) {
+    const ext = extname(rel);
+    if (!SOURCE_EXTS.includes(ext as SourceExt)) return;
+    const name = basename(rel, ext);
+
+    // Collision guard at runtime: if the manifest says this component maps
+    // to a different path, don't silently take over. Log and ignore.
+    const existing = this.manifest.get(name);
+    if (existing && existing.path !== rel) {
+      this.log(
+        `ignoring ${rel}: component '${name}' is already mapped to ${existing.path}. ` +
+          "rename the file or remove the existing entry.",
+      );
+      return;
+    }
+
+    if (!existing) {
       await this.manifest.upsert(name, { path: rel, description: "" });
     }
     await this.compileAndStore(name, rel);
@@ -196,8 +360,16 @@ export class FilesystemSourceStore {
 
   private async handleFileRemoved(absPath: string): Promise<void> {
     const rel = relative(this.dir, absPath);
-    if (!SOURCE_EXTS.includes(extname(rel))) return;
-    const name = basename(rel, extname(rel));
+    const ext = extname(rel);
+    if (!SOURCE_EXTS.includes(ext as SourceExt)) return;
+    const name = basename(rel, ext);
+
+    // Only remove if the manifest actually points at this rel path; if a
+    // different file happens to share the basename we shouldn't nuke the
+    // registration on unrelated churn.
+    const entry = this.manifest.get(name);
+    if (entry && entry.path !== rel) return;
+
     await this.manifest.remove(name);
     const removed = this.store.remove(name);
     if (removed) this.log(`unloaded ${name} (file deleted)`);
@@ -205,7 +377,7 @@ export class FilesystemSourceStore {
 
   /**
    * Wait for the next Store change for `name`, or time out.
-   * Returns whatever is currently stored on timeout (possibly undefined).
+   * Returns whatever is currently stored on timeout.
    */
   private awaitNextCompile(name: string): Promise<CompiledModule> {
     return new Promise((resolveP) => {
@@ -240,6 +412,15 @@ function validateName(name: string): void {
   if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(name)) {
     throw new Error(
       `invalid component name '${name}'. Use letters, digits, underscore, or hyphen; start with a letter.`,
+    );
+  }
+}
+
+function ensureAllowedExtension(relPath: string): void {
+  const ext = extname(relPath);
+  if (!SOURCE_EXTS.includes(ext as SourceExt)) {
+    throw new Error(
+      `source path '${relPath}' must end in one of: ${SOURCE_EXTS.join(", ")}`,
     );
   }
 }

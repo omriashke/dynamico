@@ -1,11 +1,18 @@
-import { readFile, readdir, stat } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { basename, extname, join, resolve } from "node:path";
 import type { Diagnostic } from "@dynamico/core";
 import { upload, type ClientOptions } from "../client.js";
 import { flagBool, flagString, resolveCommon } from "../args.js";
 import { emit, fail, formatDiagnostic } from "../output.js";
 
-const SOURCE_EXTS = [".tsx", ".jsx", ".ts", ".js"];
+/**
+ * Extensions accepted as dynamic component source. `.tsx`/`.jsx` are the
+ * common case; `.ts`/`.js` are allowed for logic-only helpers.
+ */
+const SOURCE_EXTS = [".tsx", ".jsx", ".ts", ".js"] as const;
+type SourceExt = (typeof SOURCE_EXTS)[number];
+
+const MANIFEST_NAME = "dynamico.config.json";
 
 export interface PushArgs {
   positional: string[];
@@ -54,6 +61,13 @@ export async function push(args: PushArgs): Promise<void> {
     source = await readStdin();
   } else {
     const filePath = resolve(sourcePath ?? `${name}.tsx`);
+    if (!isAllowedExt(filePath)) {
+      fail(
+        common.json,
+        { error: "only .tsx / .jsx sources are allowed", path: filePath },
+        [`error: ${filePath} must end in ${SOURCE_EXTS.join(" or ")}`],
+      );
+    }
     try {
       source = await readFile(filePath, "utf8");
     } catch (err) {
@@ -68,20 +82,109 @@ export async function push(args: PushArgs): Promise<void> {
   handleSingleResponse(name, status, data, common.json, dryRun);
 }
 
+/**
+ * Bulk push. Semantics:
+ *   - `<dir>/dynamico.config.json` is required. It's the explicit contract
+ *     that says *which* files should be published and with what descriptions.
+ *   - For each manifest entry we read `<dir>/<entry.path>` and POST it.
+ *     Subfolders in `entry.path` are allowed: component names stay flat
+ *     (keyed by basename) but files can live anywhere under the root.
+ *   - Every `entry.path` must end in `.tsx` or `.jsx`.
+ *   - Any .tsx/.jsx on disk that isn't in the manifest is reported as a
+ *     warning ("extra file") — the agent decides whether to add it or
+ *     delete it. One outlier shouldn't block a push.
+ *   - Any manifest entry whose file is missing on disk is a hard error
+ *     (exit 1), because the agent explicitly said this file should publish.
+ */
 async function pushDir(client: ClientOptions, dir: string, dryRun: boolean, json: boolean): Promise<void> {
   const root = resolve(dir);
-  const files = await collectFiles(root);
-  if (files.length === 0) {
-    fail(json, { error: "no .tsx/.jsx/.ts/.js files found", dir: root }, [`error: no source files in ${root}`]);
+  const manifestPath = join(root, MANIFEST_NAME);
+
+  let manifestRaw: string;
+  try {
+    manifestRaw = await readFile(manifestPath, "utf8");
+  } catch {
+    fail(
+      json,
+      { error: `${MANIFEST_NAME} not found`, path: manifestPath },
+      [
+        `error: ${manifestPath} not found`,
+        `dynamico push --dir requires a ${MANIFEST_NAME} at the root of the directory.`,
+        "example:",
+        '  {"version":1,"components":{"Hello":{"path":"Hello.tsx","description":"..."}}}',
+      ],
+    );
   }
-  const components = await Promise.all(
-    files.map(async (file) => {
-      const ext = extname(file);
-      const name = basename(file, ext);
-      const source = await readFile(file, "utf8");
-      return { name, source };
-    }),
-  );
+
+  let manifest: { version: number; components: Record<string, { path: string; description?: string }> };
+  try {
+    manifest = JSON.parse(manifestRaw);
+  } catch (err) {
+    fail(
+      json,
+      { error: `${MANIFEST_NAME} is not valid JSON`, message: (err as Error).message },
+      [`error: ${manifestPath} is not valid JSON: ${(err as Error).message}`],
+    );
+  }
+  if (!manifest || typeof manifest.components !== "object") {
+    fail(
+      json,
+      { error: `${MANIFEST_NAME} missing "components" object` },
+      [`error: ${manifestPath} is missing the top-level "components" object`],
+    );
+  }
+
+  const onDisk = await collectNames(root);
+  const manifestNames = new Set(Object.keys(manifest.components));
+  const extras = [...onDisk].filter((n) => !manifestNames.has(n));
+
+  const missingOnDisk: Array<{ name: string; path: string }> = [];
+  const components: Array<{ name: string; source: string; description?: string }> = [];
+  for (const [name, entry] of Object.entries(manifest.components)) {
+    if (!entry?.path || typeof entry.path !== "string") {
+      fail(
+        json,
+        { error: `manifest entry '${name}' missing path` },
+        [`error: ${MANIFEST_NAME}: entry '${name}' is missing a "path"`],
+      );
+    }
+    if (!isAllowedExt(entry.path)) {
+      fail(
+        json,
+        { error: `manifest entry '${name}' has unsupported extension`, path: entry.path },
+        [`error: ${MANIFEST_NAME}: '${name}' -> ${entry.path} must end in ${SOURCE_EXTS.join(" or ")}`],
+      );
+    }
+    const abs = join(root, entry.path);
+    try {
+      const source = await readFile(abs, "utf8");
+      components.push(
+        entry.description !== undefined
+          ? { name, source, description: entry.description }
+          : { name, source },
+      );
+    } catch {
+      missingOnDisk.push({ name, path: entry.path });
+    }
+  }
+
+  if (missingOnDisk.length > 0) {
+    fail(
+      json,
+      { error: "manifest entries missing from disk", missing: missingOnDisk },
+      [
+        "error: manifest references files that don't exist on disk:",
+        ...missingOnDisk.map((m) => `  - ${m.name} -> ${m.path}`),
+      ],
+    );
+  }
+  if (components.length === 0) {
+    fail(
+      json,
+      { error: `${MANIFEST_NAME} has no components` },
+      [`error: ${manifestPath} has no components`],
+    );
+  }
 
   const { status, data } = await upload(client, { components }, dryRun);
 
@@ -110,12 +213,18 @@ async function pushDir(client: ClientOptions, dir: string, dryRun: boolean, json
       }
     }
   }
+  if (extras.length > 0) {
+    lines.push("");
+    lines.push(`! ${extras.length} file(s) on disk not listed in ${MANIFEST_NAME} (skipped):`);
+    for (const n of extras) lines.push(`    - ${n}`);
+    lines.push(`  add them to ${MANIFEST_NAME} or remove them to silence this warning.`);
+  }
   lines.push(`\n${results.length - failed}/${results.length} succeeded${dryRun ? " (dry-run)" : ""}`);
 
   if (failed > 0) {
-    fail(json, { dryRun, results }, lines, 3);
+    fail(json, { dryRun, results, extras }, lines, 3);
   }
-  emit(json, { dryRun, results }, lines);
+  emit(json, { dryRun, results, extras }, lines);
 }
 
 function handleSingleResponse(
@@ -141,9 +250,14 @@ function handleSingleResponse(
   emit(json, data, lines);
 }
 
-async function collectFiles(root: string): Promise<string[]> {
-  const out: string[] = [];
-  async function walk(dir: string): Promise<void> {
+/**
+ * Recursively collect component names (by basename) for any `.tsx`/`.jsx`
+ * files anywhere under `root`. Used to warn about files not declared in the
+ * manifest. Subdirectories are purely authoring layout; names are flat.
+ */
+async function collectNames(root: string): Promise<Set<string>> {
+  const out = new Set<string>();
+  const walk = async (dir: string): Promise<void> => {
     let entries;
     try {
       entries = await readdir(dir, { withFileTypes: true });
@@ -152,19 +266,24 @@ async function collectFiles(root: string): Promise<string[]> {
     }
     for (const e of entries) {
       if (e.name.startsWith(".")) continue;
-      if (e.name === "node_modules" || e.name === "dist") continue;
-      const p = join(dir, e.name);
       if (e.isDirectory()) {
-        await walk(p);
-      } else if (SOURCE_EXTS.includes(extname(e.name))) {
-        out.push(p);
+        if (e.name === "node_modules" || e.name === "dist") continue;
+        await walk(join(dir, e.name));
+        continue;
       }
+      if (!e.isFile()) continue;
+      if (e.name === MANIFEST_NAME) continue;
+      const ext = extname(e.name);
+      if (!SOURCE_EXTS.includes(ext as SourceExt)) continue;
+      out.add(basename(e.name, ext));
     }
-  }
-  const s = await stat(root);
-  if (s.isFile()) return [root];
+  };
   await walk(root);
   return out;
+}
+
+function isAllowedExt(p: string): boolean {
+  return SOURCE_EXTS.includes(extname(p) as SourceExt);
 }
 
 async function readStdin(): Promise<string> {

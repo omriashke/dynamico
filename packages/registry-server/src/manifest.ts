@@ -1,10 +1,11 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, rename, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 /**
- * Shape of `components.json` on disk. Kept deliberately small; extend with
- * additional metadata (tags, author, etc.) in a future manifest `version`.
+ * Shape of `dynamico.config.json` on disk. Kept deliberately small; extend
+ * with additional metadata (tags, author, etc.) in a future manifest
+ * `version`.
  */
 export interface ManifestFile {
   version: 1;
@@ -18,7 +19,8 @@ export interface ManifestEntry {
   description: string;
 }
 
-const MANIFEST_NAME = "components.json";
+/** Current manifest filename. */
+export const MANIFEST_NAME = "dynamico.config.json";
 
 /**
  * In-memory representation of the manifest, with read-through + atomic write.
@@ -49,7 +51,7 @@ export class Manifest {
       parsed = JSON.parse(raw);
     } catch (err) {
       throw new Error(
-        `components.json at ${path} is not valid JSON: ${(err as Error).message}`,
+        `${MANIFEST_NAME} at ${path} is not valid JSON: ${(err as Error).message}`,
       );
     }
     const data = normalize(parsed);
@@ -91,6 +93,45 @@ export class Manifest {
   }
 
   /**
+   * Overwrite the manifest with a new set of entries. Caller is responsible
+   * for having validated the payload — this is a blind write after
+   * normalisation. Returns names added/removed/changed relative to the
+   * previous state, so the caller can reconcile filesystem + store.
+   */
+  async replaceAll(next: ManifestFile): Promise<{
+    added: string[];
+    removed: string[];
+    changed: string[];
+  }> {
+    const normalized = normalize(next);
+    const prev = this.data.components;
+    const nextEntries = normalized.components;
+    const added: string[] = [];
+    const removed: string[] = [];
+    const changed: string[] = [];
+    for (const name of Object.keys(nextEntries)) {
+      if (!(name in prev)) added.push(name);
+      else if (
+        prev[name]!.path !== nextEntries[name]!.path ||
+        prev[name]!.description !== nextEntries[name]!.description
+      ) {
+        changed.push(name);
+      }
+    }
+    for (const name of Object.keys(prev)) {
+      if (!(name in nextEntries)) removed.push(name);
+    }
+    this.data = normalized;
+    await this.flush();
+    return { added, removed, changed };
+  }
+
+  /** Snapshot for serving GET /config. */
+  snapshot(): ManifestFile {
+    return JSON.parse(JSON.stringify(this.data));
+  }
+
+  /**
    * Reconcile manifest with the actual files seen on disk:
    *   - Any file without a manifest entry gets a blank entry.
    *   - Any manifest entry whose file vanished is removed.
@@ -124,7 +165,6 @@ export class Manifest {
     const tmp = this.path + ".tmp";
     await writeFile(tmp, JSON.stringify(this.data, null, 2) + "\n", "utf8");
     // Rename is atomic on POSIX; on Windows this is best-effort.
-    const { rename } = await import("node:fs/promises");
     await rename(tmp, this.path);
   }
 }

@@ -57,7 +57,7 @@ All configuration is via environment variables.
 
 | Variable              | Default              | Description                                                                 |
 | --------------------- | -------------------- | --------------------------------------------------------------------------- |
-| `DYNAMICO_SOURCE_DIR` | `/data/components`   | **Required.** Directory holding `.tsx` source files and `components.json`.  |
+| `DYNAMICO_SOURCE_DIR` | `/data/components`   | **Required.** Directory holding `.tsx`/`.jsx` source + `dynamico.config.json`. |
 
 Disk is the **source of truth**:
 
@@ -108,22 +108,25 @@ docker run -d --name dynamico-registry \
 
 ## Endpoints
 
-| Method | Path                        | Purpose                                                |
-| ------ | --------------------------- | ------------------------------------------------------ |
-| GET    | `/health`                   | Liveness probe (always public)                         |
-| GET    | `/components`               | List components (name, version, description, status)   |
-| GET    | `/component/:name`          | Fetch the latest `CompiledModule` for one              |
-| GET    | `/component/:name/source`   | Raw `.tsx` source + manifest entry (source-mode only)  |
-| GET    | `/search?q=<query>`         | Ranked name + description search (source-mode only)    |
-| POST   | `/upload`                   | Upload one or many components; optional `description`  |
-| POST   | `/upload?dryRun=true`       | Compile + validate without writing or storing          |
-| DELETE | `/component/:name`          | Remove a component (broadcasts a removal)              |
-| WS     | `/subscribe`                | Stream every change as `CompiledModule` JSON           |
+| Method | Path                        | Purpose                                                     |
+| ------ | --------------------------- | ----------------------------------------------------------- |
+| GET    | `/health`                   | Liveness probe (always public)                              |
+| GET    | `/components`               | List components (name, version, description, status)         |
+| GET    | `/component/:name`          | Fetch the latest `CompiledModule` for one                   |
+| GET    | `/component/:name/source`   | Raw source + manifest entry                                 |
+| GET    | `/search?q=<query>`         | Ranked name + description search                            |
+| GET    | `/config`                   | Current `dynamico.config.json`                              |
+| POST   | `/upload`                   | Upload one or many components; optional `description`       |
+| POST   | `/upload?dryRun=true`       | Compile + validate without writing or storing               |
+| PATCH  | `/component/:name`          | Metadata-only update (currently `description`)              |
+| PUT    | `/config`                   | Replace the entire manifest (drops = deletions, validated)  |
+| DELETE | `/component/:name`          | Remove a component (broadcasts a removal)                   |
+| WS     | `/subscribe`                | Stream every change as `CompiledModule` JSON                |
 
 The CLI [`@dynamico/cli`](https://www.npmjs.com/package/@dynamico/cli) wraps
 all of these — that's the recommended way for humans and agents to interact
-with the registry. See the README for `push`, `pull`, `list`, `rm`, and the
-flag reference.
+with the registry. See the README for `push`, `pull`, `list`, `search`,
+`edit`, `rm`, and the flag reference.
 
 ## Healthcheck
 
@@ -147,11 +150,19 @@ docker run -d --name dynamico-registry \
 ```
 
 The files inside the volume are just `.tsx`/`.jsx` alongside a single
-`components.json` manifest owned by the server. You can keep them in a git
-repo, mount a Kubernetes `ConfigMap`, or edit them with a normal editor.
+`dynamico.config.json` manifest owned by the server. You can keep them in a
+git repo, mount a Kubernetes `ConfigMap`, or edit them with a normal editor.
 Every change triggers a recompile + broadcast.
 
-### Manifest shape (`components.json`)
+Subdirectories under the source dir are fine — they're authoring layout.
+**Component names stay flat**: the registry key is the file's basename, so
+`forms/Counter.tsx` is served as `Counter`. Two files with the same basename
+in different folders cause a startup error, by design.
+
+Recognized source extensions: `.tsx`, `.jsx`, `.ts`, `.js`. Anything else in
+the directory is ignored by the watcher.
+
+### Manifest shape (`dynamico.config.json`)
 
 ```json
 {

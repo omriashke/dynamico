@@ -21,7 +21,7 @@ const sourceDir = process.env.DYNAMICO_SOURCE_DIR;
 if (!sourceDir) {
   process.stderr.write(
     "dynamico-registry: DYNAMICO_SOURCE_DIR is required.\n" +
-      "  Set it to a directory containing your .tsx source files and components.json.\n" +
+      "  Set it to a directory containing your .tsx source files and dynamico.config.json.\n" +
       "  Example: DYNAMICO_SOURCE_DIR=./components dynamico-registry\n",
   );
   process.exit(1);

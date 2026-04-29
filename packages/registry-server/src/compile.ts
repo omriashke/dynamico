@@ -10,8 +10,9 @@ const presetReact = requireFromHere.resolve("@babel/preset-react");
 const presetTypeScript = requireFromHere.resolve("@babel/preset-typescript");
 
 /**
- * Compile a single .tsx/.jsx source string to a CommonJS-style function body
- * that the client's loader will run via `new Function(module, exports, require, code)`.
+ * Compile a single source string (`.tsx`/`.jsx`/`.ts`/`.js`) to a
+ * CommonJS-style function body that the client's loader will run via
+ * `new Function(module, exports, require, code)`.
  *
  * We run validation in two phases:
  *   1) typecheck() — TypeScript syntax/sanity check, produces structured
@@ -26,9 +27,14 @@ const presetTypeScript = requireFromHere.resolve("@babel/preset-typescript");
  *     portable across Hermes/web)
  *   - preset-env: conservative target, modules: commonjs so the client loader
  *     can intercept require() calls.
+ *
+ * `ext` is the source file's extension (e.g. `".tsx"`) and is used only to
+ * give Babel an accurate filename for error messages — the TS preset runs
+ * with `allExtensions: true` and `isTSX: true`, so JSX is understood
+ * regardless of extension.
  */
-export async function compile(name: string, source: string): Promise<CompiledModule> {
-  const tc = typecheck(name, source);
+export async function compile(name: string, source: string, ext = ".tsx"): Promise<CompiledModule> {
+  const tc = typecheck(name, source, ext);
   if (!tc.ok) {
     return errorModule(name, "typecheck failed", undefined, tc.diagnostics, "typecheck");
   }
@@ -36,7 +42,7 @@ export async function compile(name: string, source: string): Promise<CompiledMod
 
   try {
     const result = await transformAsync(source, {
-      filename: `${name}.tsx`,
+      filename: `${name}${ext}`,
       babelrc: false,
       configFile: false,
       sourceType: "module",

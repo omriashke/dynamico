@@ -18,19 +18,31 @@ import type { Diagnostic } from "@dynamico/core";
  *   { ok: false, diagnostics } — caller should reject the upload (or surface
  *                                via dry-run)
  */
-export function typecheck(name: string, source: string): {
+export function typecheck(
+  name: string,
+  source: string,
+  ext = ".tsx",
+): {
   ok: boolean;
   diagnostics: Diagnostic[];
 } {
-  const filename = `${name}.tsx`;
-  const sourceFile = ts.createSourceFile(filename, source, ts.ScriptTarget.ES2020, true, ts.ScriptKind.TSX);
+  const filename = `${name}${ext}`;
+  const kind =
+    ext === ".tsx" || ext === ".jsx"
+      ? ts.ScriptKind.TSX
+      : ext === ".ts"
+        ? ts.ScriptKind.TS
+        : ts.ScriptKind.JS;
+  const sourceFile = ts.createSourceFile(filename, source, ts.ScriptTarget.ES2020, true, kind);
 
   const diagnostics: Diagnostic[] = [];
   const syntactic = (sourceFile as unknown as { parseDiagnostics?: ts.Diagnostic[] }).parseDiagnostics ?? [];
   for (const d of syntactic) diagnostics.push(toDiag(d, "error", source));
 
-  const reachableDefault = hasDefaultExport(sourceFile);
-  if (!reachableDefault) {
+  // Default-export requirement only applies to React component files. Plain
+  // `.ts` / `.js` helpers are allowed to export whatever (or nothing).
+  const isComponentFile = ext === ".tsx" || ext === ".jsx";
+  if (isComponentFile && !hasDefaultExport(sourceFile)) {
     diagnostics.push({
       severity: "error",
       message: "component must have a default export (e.g. `export default function Foo() {...}`)",

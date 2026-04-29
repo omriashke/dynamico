@@ -16,8 +16,8 @@ services:
     ports:
       - "4000:4000"
     # The image defaults DYNAMICO_SOURCE_DIR to /data/components. We mount a
-    # host directory there so source files + components.json persist across
-    # restarts and are editable from your editor or a git checkout.
+    # host directory there so `.tsx` sources + dynamico.config.json persist
+    # across restarts and stay editable from your editor or a git checkout.
     volumes:
       - ./data/components:/data/components
     environment:
@@ -25,7 +25,7 @@ services:
       DYNAMICO_BASIC_USER: ${DYNAMICO_BASIC_USER:-}
       DYNAMICO_BASIC_PASSWORD: ${DYNAMICO_BASIC_PASSWORD:-}
       DYNAMICO_ALLOW_IPS: ${DYNAMICO_ALLOW_IPS:-}
-      # Uncomment to put source somewhere else inside the container, e.g. a
-      # named volume. Remove entirely to run in legacy in-memory mode.
+      # Point this at a different path (e.g. a named volume mount point) if
+      # you don't want to use /data/components.
       # DYNAMICO_SOURCE_DIR: /data/components
     restart: unless-stopped

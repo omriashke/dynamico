@@ -7,6 +7,7 @@ import { list } from "./commands/list.js";
 import { rm } from "./commands/rm.js";
 import { searchCmd } from "./commands/search.js";
 import { skill } from "./commands/skill.js";
+import { edit } from "./commands/edit.js";
 
 const usage = `dynamico — runtime react renderer
 
@@ -15,6 +16,8 @@ Usage:
   dynamico pull <name> [--source] [--out <path>] [--json]
   dynamico list [--json]
   dynamico search <query> [--json]
+  dynamico edit <name> --description <text>            # metadata-only update
+  dynamico edit --config <path>                        # replace full dynamico.config.json
   dynamico rm <name> [--json]
   dynamico dev <dir>
   dynamico skill install [--target <dir>] [--force] [--json]
@@ -51,6 +54,9 @@ async function main(): Promise<void> {
       return;
     case "rm":
       await rm({ positional, flags });
+      return;
+    case "edit":
+      await edit({ positional, flags });
       return;
     case "skill":
       await skill({ positional, flags });

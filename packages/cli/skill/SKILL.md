@@ -9,7 +9,9 @@ Dynamico is a runtime React renderer. Components live as `.tsx` files and are ho
 
 ## Mental model
 
-**The registry's source directory is the source of truth.** Every component exists as a `.tsx` file on disk plus an entry in `components.json`. Any change — from the CLI or from disk directly — flows through the same watcher and broadcasts over WebSocket. The server requires `DYNAMICO_SOURCE_DIR` to start.
+**The registry's source directory is the source of truth.** Every component exists as a source file on disk (`.tsx`, `.jsx`, `.ts`, or `.js`) plus an entry in `dynamico.config.json`. Any change — from the CLI or from disk directly — flows through the same watcher and broadcasts over WebSocket. The server requires `DYNAMICO_SOURCE_DIR` to start.
+
+Subdirectories under the source dir are allowed as authoring layout, but **component names are flat**: the registry key is the file's basename (e.g. `forms/Button.tsx` registers as `Button`). Two files with the same basename in different folders are a startup error.
 
 That means the agent can do a proper edit loop:
 1. **Discover** — `dynamico search <keywords>` or `dynamico list` to find components.
@@ -26,6 +28,8 @@ dynamico push <name> [--source <path> | --stdin | --dir <path>]
 dynamico pull <name> [--source] [--out <path>] [--json]
 dynamico list [--json]
 dynamico search <query> [--json]
+dynamico edit <name> --description <text>            # metadata-only update
+dynamico edit --config <path>                        # replace full dynamico.config.json
 dynamico rm <name> [--json]
 dynamico dev <dir>            # watch a directory and auto-push on save
 dynamico skill install        # (re)install this skill
@@ -73,6 +77,26 @@ dynamico push NewThing --source NewThing.tsx \
 
 Always include a `--description` for new components. It's what `dynamico search` indexes, and other agents (or humans) rely on it to find the component later.
 
+## Bulk push: `--dir`
+
+To push a whole directory, the directory **must** contain a `dynamico.config.json` at its root. This file is the contract for which components exist:
+
+```json
+{
+  "version": 1,
+  "components": {
+    "Hello":   { "path": "Hello.tsx",            "description": "Greeting banner"    },
+    "Counter": { "path": "forms/Counter.tsx",    "description": "Clickable counter"  }
+  }
+}
+```
+
+Rules:
+- `path` is relative to the directory you're pushing and must end in `.tsx` or `.jsx`.
+- Subfolders are fine; component names (the keys) are still flat.
+- Missing files listed in the manifest → hard error (exit 1).
+- `.tsx`/`.jsx` files on disk not listed in the manifest → printed as warnings, not pushed.
+
 ## Dry-run diagnostics format
 
 When a push fails validation, the `--json` response looks like:
@@ -90,6 +114,23 @@ When a push fails validation, the `--json` response looks like:
 ```
 
 Edit the source at `{line}:{column}` and re-run. Repeat until exit 0.
+
+## Edit metadata without re-uploading source
+
+Use `dynamico edit` when the source file is unchanged but metadata isn't:
+
+```bash
+# Update just the description. No recompile, no broadcast.
+dynamico edit Counter --description "New clearer description"
+
+# Replace the whole dynamico.config.json (git-style). Entries dropped from the
+# local file are DELETED on the registry (source files removed, clients get
+# unload events). Validation is all-or-nothing — on failure nothing is written.
+dynamico edit --config ./dynamico.config.json
+```
+
+When using `--config`, the file must list every component you want to keep.
+Omission = deletion.
 
 ## Authoring rules
 

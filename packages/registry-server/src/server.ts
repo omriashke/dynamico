@@ -17,7 +17,7 @@ export interface CreateServerOptions {
   auth?: AuthOptions;
   /**
    * Absolute path to a directory holding `.tsx`/`.jsx` source files +
-   * `components.json`. Required: disk is the source of truth.
+   * `dynamico.config.json`. Required: disk is the source of truth.
    *   - POST /upload writes files and a watcher recompiles
    *   - DELETE unlinks files
    *   - GET /component/:name/source returns raw source
@@ -123,6 +123,76 @@ export async function createServer(options: CreateServerOptions): Promise<{
     }
     return { ok: true, name: req.params.name };
   });
+
+  /**
+   * Metadata-only patch for a component (currently just `description`). Does
+   * not re-read or recompile the source file.
+   */
+  app.patch<{ Params: { name: string }; Body: { description?: string } }>(
+    "/component/:name",
+    async (req, reply) => {
+      const body = req.body ?? {};
+      if (body.description !== undefined && typeof body.description !== "string") {
+        reply.code(400);
+        return { error: "description must be a string" };
+      }
+      try {
+        const updated = await sourceStore.patchMeta(req.params.name, body);
+        return { ok: true, ...updated };
+      } catch (err) {
+        const e = err as Error & { code?: string };
+        if (e.code === "NOT_FOUND") {
+          reply.code(404);
+          return { error: e.message };
+        }
+        reply.code(400);
+        return { error: e.message };
+      }
+    },
+  );
+
+  /** Current manifest (equivalent of `cat dynamico.config.json`). */
+  app.get("/config", async () => sourceStore.snapshotConfig());
+
+  /**
+   * Replace the entire manifest. Entries dropped from the body are removed
+   * (their source files deleted). All referenced paths must exist on disk;
+   * on validation failure no changes are written.
+   */
+  app.put<{ Body: { version?: number; components?: Record<string, { path?: string; description?: string }> } }>(
+    "/config",
+    async (req, reply) => {
+      const body = req.body ?? {};
+      if (!body || typeof body !== "object" || typeof body.components !== "object" || body.components === null) {
+        reply.code(400);
+        return { error: 'expected JSON body { version: 1, components: { [name]: { path, description } } }' };
+      }
+      try {
+        const normalized = {
+          version: 1 as const,
+          components: Object.fromEntries(
+            Object.entries(body.components).map(([name, entry]) => [
+              name,
+              {
+                path: (entry?.path ?? "") as string,
+                description: (entry?.description ?? "") as string,
+              },
+            ]),
+          ),
+        };
+        const diff = await sourceStore.replaceConfig(normalized);
+        return { ok: true, ...diff };
+      } catch (err) {
+        const e = err as Error & { code?: string; diagnostics?: string[] };
+        if (e.code === "INVALID_CONFIG") {
+          reply.code(422);
+          return { error: e.message, diagnostics: e.diagnostics ?? [] };
+        }
+        reply.code(400);
+        return { error: e.message };
+      }
+    },
+  );
 
   app.post<{ Body: UploadBody; Querystring: UploadQuery }>(
     "/upload",
