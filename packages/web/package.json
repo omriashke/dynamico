@@ -1,5 +1,5 @@
 {
-  "name": "@omriashke/web",
+  "name": "@omriashke/dynamico-web",
   "version": "0.1.0",
   "description": "Dynamico runtime for React DOM: Provider, DynamicComponent, and the web default scope.",
   "license": "Apache-2.0",
@@ -34,7 +34,7 @@
     "react-dom": ">=18"
   },
   "dependencies": {
-    "@omriashke/core": "workspace:*"
+    "@omriashke/dynamico-core": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "^18.3.0",

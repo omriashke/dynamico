@@ -1,5 +1,5 @@
 import * as React from "react";
-import type { Scope } from "@omriashke/core";
+import type { Scope } from "@omriashke/dynamico-core";
 
 /**
  * Default host scope for web. We use Babel's *classic* JSX runtime in the

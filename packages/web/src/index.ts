@@ -1,4 +1,4 @@
-import { createRuntime } from "@omriashke/core";
+import { createRuntime } from "@omriashke/dynamico-core";
 import { defaultScope } from "./defaultScope.js";
 
 const runtime = createRuntime(defaultScope);
@@ -8,7 +8,7 @@ export const DynamicComponent = runtime.DynamicComponent;
 export const useDynamico = runtime.useDynamico;
 
 export { defaultScope };
-export { createRemoteSource } from "@omriashke/core";
+export { createRemoteSource } from "@omriashke/dynamico-core";
 export type {
   Source,
   CompiledModule,
@@ -18,4 +18,4 @@ export type {
   Scope,
   DynamicoProviderProps,
   DynamicComponentProps,
-} from "@omriashke/core";
+} from "@omriashke/dynamico-core";

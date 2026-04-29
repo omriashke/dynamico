@@ -1,5 +1,5 @@
 {
-  "name": "@omriashke/cli",
+  "name": "@omriashke/dynamico-cli",
   "version": "0.1.0",
   "description": "CLI for dynamico: push, pull, list, search, edit, and remove components from a live registry.",
   "license": "Apache-2.0",
@@ -26,7 +26,7 @@
     "dev": "tsx watch src/bin.ts"
   },
   "dependencies": {
-    "@omriashke/core": "workspace:*",
+    "@omriashke/dynamico-core": "workspace:*",
     "chokidar": "^4.0.0"
   },
   "devDependencies": {

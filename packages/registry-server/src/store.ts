@@ -1,4 +1,4 @@
-import type { CompiledModule, CompiledModuleRemoved } from "@omriashke/core";
+import type { CompiledModule, CompiledModuleRemoved } from "@omriashke/dynamico-core";
 import { createHash } from "node:crypto";
 
 export type StoreListener = (module: CompiledModule) => void;

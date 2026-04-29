@@ -1,4 +1,4 @@
-import type { CompiledModule, Diagnostic } from "@omriashke/core";
+import type { CompiledModule, Diagnostic } from "@omriashke/dynamico-core";
 
 export interface AuthFlags {
   token?: string;

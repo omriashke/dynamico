@@ -1,5 +1,5 @@
 import ts from "typescript";
-import type { Diagnostic } from "@omriashke/core";
+import type { Diagnostic } from "@omriashke/dynamico-core";
 
 /**
  * Lightweight syntax-only typecheck on a TSX source.

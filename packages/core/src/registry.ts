@@ -13,7 +13,7 @@ import { loadModule } from "./loader.js";
  * In-memory, versioned registry of dynamic components.
  *
  * The registry is the single source of truth that runtime packages
- * (@omriashke/web, @omriashke/native) subscribe to. It receives compiled
+ * (@omriashke/dynamico-web, @omriashke/dynamico-native) subscribe to. It receives compiled
  * modules from a Source, evaluates them via the loader using a host-provided
  * Scope, and notifies subscribers when a component's version changes.
  */

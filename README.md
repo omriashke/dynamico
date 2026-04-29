@@ -47,11 +47,11 @@ primitives the runtime exposes via the host scope.
 
 ```
 packages/
-  core/              @omriashke/core            renderer-agnostic registry, loader, source adapter, runtime factory
-  web/               @omriashke/web             React-DOM runtime (Provider, DynamicComponent) + default scope
-  native/            @omriashke/native          React-Native / Expo runtime
-  cli/               @omriashke/cli             watches a dir and uploads to a registry
-  registry-server/   @omriashke/registry-server reference HTTP+WS server: compile, store, broadcast
+  core/              @omriashke/dynamico-core            renderer-agnostic registry, loader, source adapter, runtime factory
+  web/               @omriashke/dynamico-web             React-DOM runtime (Provider, DynamicComponent) + default scope
+  native/            @omriashke/dynamico-native          React-Native / Expo runtime
+  cli/               @omriashke/dynamico-cli             watches a dir and uploads to a registry
+  registry-server/   @omriashke/dynamico-registry reference HTTP+WS server: compile, store, broadcast
 examples/
   components/        web-flavored .tsx files (Hello, Counter, Card)
   components-native/ RN-flavored .tsx files (HelloNative, CounterNative)
@@ -89,8 +89,8 @@ pnpm build
 Run the registry, the CLI watcher, and the web host in three terminals:
 
 ```bash
-pnpm --filter @omriashke/registry-server dev
-pnpm --filter @omriashke/cli dev -- dev examples/components --registry http://localhost:4000
+pnpm --filter @omriashke/dynamico-registry dev
+pnpm --filter @omriashke/dynamico-cli dev -- dev examples/components --registry http://localhost:4000
 pnpm --filter web-host dev
 ```
 
@@ -100,7 +100,7 @@ the page updates without a refresh.
 For Expo (after the registry is running, with components-native pushed):
 
 ```bash
-pnpm --filter @omriashke/cli dev -- dev examples/components-native --registry http://localhost:4000
+pnpm --filter @omriashke/dynamico-cli dev -- dev examples/components-native --registry http://localhost:4000
 pnpm --filter expo-host start
 ```
 
@@ -205,9 +205,9 @@ TypeScript diagnostics with file/line/column when source code is broken.
 ### Install
 
 ```bash
-npm install -g @omriashke/cli
+npm install -g @omriashke/dynamico-cli
 # or, in this monorepo, run it directly:
-pnpm --filter @omriashke/cli build
+pnpm --filter @omriashke/dynamico-cli build
 node packages/cli/dist/bin.js --help
 ```
 
@@ -383,15 +383,15 @@ The reference server enables auth when any of these are set:
 
 ```bash
 # bearer token
-DYNAMICO_TOKEN=secret123 pnpm --filter @omriashke/registry-server start
+DYNAMICO_TOKEN=secret123 pnpm --filter @omriashke/dynamico-registry start
 
 # HTTP basic
 DYNAMICO_BASIC_USER=alice DYNAMICO_BASIC_PASSWORD=wonderland \
-  pnpm --filter @omriashke/registry-server start
+  pnpm --filter @omriashke/dynamico-registry start
 
 # IP allow-list (comma-separated; matches with or without ::ffff: prefix)
 DYNAMICO_ALLOW_IPS=10.0.0.5,10.0.0.6 \
-  pnpm --filter @omriashke/registry-server start
+  pnpm --filter @omriashke/dynamico-registry start
 ```
 
 Multiple methods can be combined; a request is allowed if it satisfies any
@@ -409,8 +409,8 @@ CLI's subcommands, flags, exit codes, and authoring rules for dynamic
 components — no copying from this README.
 
 ```bash
-npx @omriashke/cli skill install
-# or, if @omriashke/cli is installed globally:
+npx @omriashke/dynamico-cli skill install
+# or, if @omriashke/dynamico-cli is installed globally:
 dynamico skill install
 ```
 
@@ -434,14 +434,14 @@ import {
   DynamicoProvider,
   DynamicComponent,
   createRemoteSource,
-} from "@omriashke/web";
+} from "@omriashke/dynamico-web";
 
 // expo
 import {
   DynamicoProvider,
   DynamicComponent,
   createRemoteSource,
-} from "@omriashke/native";
+} from "@omriashke/dynamico-native";
 
 const source = createRemoteSource({ url: "http://localhost:4000" });
 
@@ -506,9 +506,9 @@ recovers without restarting the host app.
 
 ## How web and Expo share one core
 
-`@omriashke/core` exports `createRuntime(defaultScope)` which returns a
+`@omriashke/dynamico-core` exports `createRuntime(defaultScope)` which returns a
 `{ DynamicoProvider, DynamicComponent, useDynamico }` triple built against any
-scope. Both `@omriashke/web` and `@omriashke/native` are 12-line wrappers that
+scope. Both `@omriashke/dynamico-web` and `@omriashke/dynamico-native` are 12-line wrappers that
 call `createRuntime` with their respective default scope. There is **no** code
 that knows about React-DOM specifically; React on Hermes/RN works the same way.
 
