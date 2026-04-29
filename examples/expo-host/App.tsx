@@ -6,7 +6,7 @@ import {
   DynamicComponent,
   createRemoteSource,
   type DynamicError,
-} from "@dynamico/native";
+} from "@omriaske/native";
 
 declare const process: { env: Record<string, string | undefined> } | undefined;
 

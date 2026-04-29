@@ -123,7 +123,7 @@ docker run -d --name dynamico-registry \
 | DELETE | `/component/:name`          | Remove a component (broadcasts a removal)                   |
 | WS     | `/subscribe`                | Stream every change as `CompiledModule` JSON                |
 
-The CLI [`@dynamico/cli`](https://www.npmjs.com/package/@dynamico/cli) wraps
+The CLI [`@omriaske/cli`](https://www.npmjs.com/package/@omriaske/cli) wraps
 all of these — that's the recommended way for humans and agents to interact
 with the registry. See the README for `push`, `pull`, `list`, `search`,
 `edit`, `rm`, and the flag reference.
@@ -211,7 +211,7 @@ DYNAMICO_REGISTRY=http://localhost:4000 \
 From a web/Expo host app:
 
 ```ts
-import { createRemoteSource } from "@dynamico/web"; // or @dynamico/native
+import { createRemoteSource } from "@omriaske/web"; // or @omriaske/native
 
 const source = createRemoteSource({
   url: "http://localhost:4000",
@@ -230,8 +230,8 @@ docker build -f packages/registry-server/Dockerfile -t dynamico/registry-server:
 
 The build is multi-stage:
 
-1. **builder** installs the pnpm workspace, builds `@dynamico/core` and
-   `@dynamico/registry-server`, then runs `pnpm deploy` to materialize a
+1. **builder** installs the pnpm workspace, builds `@omriaske/core` and
+   `@omriaske/registry-server`, then runs `pnpm deploy` to materialize a
    self-contained `node_modules`.
 2. **runner** is `node:20-alpine`, runs as the unprivileged `node` user,
    contains only the deployed bundle (no source, no pnpm, no build tools).

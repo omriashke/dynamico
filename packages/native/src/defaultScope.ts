@@ -1,5 +1,5 @@
 import * as React from "react";
-import type { Scope } from "@dynamico/core";
+import type { Scope } from "@omriaske/core";
 
 /**
  * Default host scope for React Native / Expo.

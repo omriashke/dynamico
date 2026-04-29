@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@dynamico/web": "workspace:*",
+    "@omriaske/web": "workspace:*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

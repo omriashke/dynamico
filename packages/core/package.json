@@ -1,5 +1,5 @@
 {
-  "name": "@dynamico/core",
+  "name": "@omriaske/core",
   "version": "0.1.0",
   "description": "Renderer-agnostic core for dynamico: source adapters, module loader, versioned component registry.",
   "license": "Apache-2.0",

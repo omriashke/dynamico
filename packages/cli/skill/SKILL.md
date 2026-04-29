@@ -181,7 +181,7 @@ Or inside the Dynamico monorepo:
 
 ```bash
 DYNAMICO_SOURCE_DIR=./components \
-  pnpm --filter @dynamico/registry-server dev
+  pnpm --filter @omriaske/registry-server dev
 ```
 
 The server exits with a startup error if `DYNAMICO_SOURCE_DIR` isn't set.

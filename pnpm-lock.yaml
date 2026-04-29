@@ -14,7 +14,7 @@ importers:
 
   examples/expo-host:
     dependencies:
-      '@dynamico/native':
+      '@omriaske/native':
         specifier: workspace:*
         version: link:../../packages/native
       expo:
@@ -42,7 +42,7 @@ importers:
 
   examples/web-host:
     dependencies:
-      '@dynamico/web':
+      '@omriaske/web':
         specifier: workspace:*
         version: link:../../packages/web
       react:
@@ -70,7 +70,7 @@ importers:
 
   packages/cli:
     dependencies:
-      '@dynamico/core':
+      '@omriaske/core':
         specifier: workspace:*
         version: link:../core
       chokidar:
@@ -98,7 +98,7 @@ importers:
 
   packages/native:
     dependencies:
-      '@dynamico/core':
+      '@omriaske/core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -123,15 +123,15 @@ importers:
       '@babel/preset-typescript':
         specifier: ^7.24.0
         version: 7.28.5(@babel/core@7.29.0)
-      '@dynamico/core':
-        specifier: workspace:*
-        version: link:../core
       '@fastify/cors':
         specifier: ^11.2.0
         version: 11.2.0
       '@fastify/websocket':
         specifier: ^11.0.1
         version: 11.2.0
+      '@omriaske/core':
+        specifier: workspace:*
+        version: link:../core
       chokidar:
         specifier: ^4.0.3
         version: 4.0.3
@@ -154,7 +154,7 @@ importers:
 
   packages/web:
     dependencies:
-      '@dynamico/core':
+      '@omriaske/core':
         specifier: workspace:*
         version: link:../core
     devDependencies:
