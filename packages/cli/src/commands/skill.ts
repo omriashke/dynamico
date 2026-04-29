@@ -14,7 +14,7 @@ export interface SkillArgs {
 /**
  * `dynamico skill install [--target <dir>] [--force]`
  *
- * Copies the bundled SKILL.md (shipped inside the @omriaske/cli npm package)
+ * Copies the bundled SKILL.md (shipped inside the @omriashke/cli npm package)
  * into a Cursor skill directory. Default target is the user's personal
  * skills folder: `~/.cursor/skills/dynamico/`.
  *
@@ -46,11 +46,11 @@ export async function skill(args: SkillArgs): Promise<void> {
   if (!source) {
     fail(
       json,
-      { error: "could not locate bundled SKILL.md inside the @omriaske/cli package" },
+      { error: "could not locate bundled SKILL.md inside the @omriashke/cli package" },
       [
         "error: could not locate bundled SKILL.md",
         "this usually means the cli was invoked without its shipped 'skill/' directory.",
-        "reinstall with: npm install -g @omriaske/cli",
+        "reinstall with: npm install -g @omriashke/cli",
       ],
     );
   }

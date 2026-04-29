@@ -1,4 +1,4 @@
-import type { Diagnostic } from "@omriaske/core";
+import type { Diagnostic } from "@omriashke/core";
 
 /**
  * Human-readable rendering for diagnostics. Mimics the classic compiler

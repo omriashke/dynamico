@@ -1,6 +1,6 @@
 import { readFile, readdir } from "node:fs/promises";
 import { basename, extname, join, resolve } from "node:path";
-import type { Diagnostic } from "@omriaske/core";
+import type { Diagnostic } from "@omriashke/core";
 import { upload, type ClientOptions } from "../client.js";
 import { flagBool, flagString, resolveCommon } from "../args.js";
 import { emit, fail, formatDiagnostic } from "../output.js";

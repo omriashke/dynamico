@@ -1,7 +1,7 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import websocket from "@fastify/websocket";
 import cors from "@fastify/cors";
-import type { CompiledModule } from "@omriaske/core";
+import type { CompiledModule } from "@omriashke/core";
 import { Store } from "./store.js";
 import { compile } from "./compile.js";
 import { registerAuth, type AuthOptions } from "./auth.js";

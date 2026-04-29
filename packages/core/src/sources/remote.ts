@@ -14,7 +14,7 @@ export interface RemoteSourceOptions {
 }
 
 /**
- * Talks to @omriaske/registry-server (or any compatible server).
+ * Talks to @omriashke/registry-server (or any compatible server).
  *
  *   GET  {url}/component/:name      -> CompiledModule (initial fetch)
  *   WS   {wsUrl}/subscribe          -> stream of CompiledModule updates

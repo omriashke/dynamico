@@ -1,5 +1,5 @@
 {
-  "name": "@omriaske/native",
+  "name": "@omriashke/native",
   "version": "0.1.0",
   "description": "Dynamico runtime for React Native / Expo: Provider, DynamicComponent, and the native default scope.",
   "license": "Apache-2.0",
@@ -34,7 +34,7 @@
     "react-native": "*"
   },
   "dependencies": {
-    "@omriaske/core": "workspace:*"
+    "@omriashke/core": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "^18.3.0",

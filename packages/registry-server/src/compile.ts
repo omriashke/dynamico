@@ -1,7 +1,7 @@
 import { transformAsync } from "@babel/core";
 import { createRequire } from "node:module";
 import { createHash } from "node:crypto";
-import type { CompiledModule, Diagnostic } from "@omriaske/core";
+import type { CompiledModule, Diagnostic } from "@omriashke/core";
 import { typecheck } from "./typecheck.js";
 
 const requireFromHere = createRequire(import.meta.url);

@@ -6,8 +6,8 @@
   "packageManager": "pnpm@10.30.3",
   "scripts": {
     "build": "pnpm -r --filter \"./packages/*\" build",
-    "dev:registry": "pnpm --filter @omriaske/registry-server dev",
-    "dev:cli": "pnpm --filter @omriaske/cli dev",
+    "dev:registry": "pnpm --filter @omriashke/registry-server dev",
+    "dev:cli": "pnpm --filter @omriashke/cli dev",
     "dev:web": "pnpm --filter web-host dev",
     "typecheck": "pnpm -r typecheck"
   },

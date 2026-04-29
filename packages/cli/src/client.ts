@@ -1,4 +1,4 @@
-import type { CompiledModule, Diagnostic } from "@omriaske/core";
+import type { CompiledModule, Diagnostic } from "@omriashke/core";
 
 export interface AuthFlags {
   token?: string;

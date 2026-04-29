@@ -4,7 +4,7 @@ import {
   DynamicComponent,
   createRemoteSource,
   type DynamicError,
-} from "@omriaske/web";
+} from "@omriashke/web";
 
 const REGISTRY_URL =
   (import.meta.env?.VITE_DYNAMICO_REGISTRY as string | undefined) ??

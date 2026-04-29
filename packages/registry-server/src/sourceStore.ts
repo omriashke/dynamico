@@ -2,7 +2,7 @@ import chokidar, { type FSWatcher } from "chokidar";
 import { mkdir, readFile, readdir, unlink, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { basename, dirname, extname, join, relative, resolve, sep } from "node:path";
-import type { CompiledModule } from "@omriaske/core";
+import type { CompiledModule } from "@omriashke/core";
 import { compile } from "./compile.js";
 import { Manifest, MANIFEST_NAME, type ManifestFile } from "./manifest.js";
 import type { Store } from "./store.js";
