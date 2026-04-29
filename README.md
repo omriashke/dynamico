@@ -1,5 +1,7 @@
 # Dynamico
 
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+
 Runtime React renderer that loads components from a directory and updates them
 live, on **web** (React DOM) and **Expo** (React Native), without rebuilding the
 host app.
