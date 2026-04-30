@@ -1,27 +1,30 @@
-# dynamico/registry-server
+# omriashkenazi/dynamico-registry
 
-Reference Docker image for the [Dynamico](https://github.com/dynamico-dev/dynamico)
+Reference Docker image for the [Dynamico](https://github.com/omriaskenazi/dynamico)
 runtime React component registry.
 
-The registry compiles `.tsx` to portable JS, stores the latest version of each
-component in memory, exposes an HTTP + WebSocket API, and broadcasts updates
-to connected clients (web and Expo) so they hot-swap components live.
+The registry compiles `.tsx` / `.jsx` / `.ts` / `.js` to portable JS, owns a
+directory of source files on disk as the source of truth, exposes an HTTP +
+WebSocket API, and broadcasts updates to connected clients (web and Expo) so
+they hot-swap components live.
 
-> **Status:** v0 reference image. In-memory store; restarting drops every
-> component. Suitable for development, internal tools, and as a starting point
-> for a production deployment that wraps the same `createServer` API with a
-> persistent store.
+> **Status:** v0 reference image. Disk-backed: mount a volume at
+> `/data/components` and components (and their metadata) survive restarts.
+> Suitable for development, internal tools, and small production deployments.
 
 ## TL;DR
 
 ```bash
 # pull and run, open registry, no auth (development only)
-docker run --rm -p 4000:4000 dynamico/registry-server:latest
+docker run --rm -p 4000:4000 \
+  -v $PWD/components:/data/components \
+  omriashkenazi/dynamico-registry:latest
 
 # with bearer-token auth
 docker run --rm -p 4000:4000 \
+  -v $PWD/components:/data/components \
   -e DYNAMICO_TOKEN=$(openssl rand -hex 32) \
-  dynamico/registry-server:latest
+  omriashkenazi/dynamico-registry:latest
 ```
 
 Test it:
@@ -98,7 +101,7 @@ docker run -d --name dynamico-registry \
   -p 4000:4000 \
   -e DYNAMICO_TOKEN=s3cret \
   -e DYNAMICO_ALLOW_IPS=10.0.0.0/8 \
-  dynamico/registry-server:latest
+  omriashkenazi/dynamico-registry:latest
 ```
 
 > Note: v0 IP matching is **exact match only** (with handling for the
@@ -146,7 +149,7 @@ docker run -d --name dynamico-registry \
   -p 4000:4000 \
   -v $PWD/components:/data/components \
   -e DYNAMICO_TOKEN=secret \
-  dynamico/registry-server:latest
+  omriashkenazi/dynamico-registry:latest
 ```
 
 The files inside the volume are just `.tsx`/`.jsx` alongside a single
@@ -184,7 +187,7 @@ it in sync — but it's plain JSON if you want to inspect it.
 ```yaml
 services:
   registry:
-    image: dynamico/registry-server:latest
+    image: omriashkenazi/dynamico-registry:latest
     ports:
       - "4000:4000"
     volumes:
@@ -223,9 +226,9 @@ const source = createRemoteSource({
 ## Building from source
 
 ```bash
-git clone https://github.com/dynamico-dev/dynamico.git
+git clone https://github.com/omriaskenazi/dynamico.git
 cd dynamico
-docker build -f packages/registry-server/Dockerfile -t dynamico/registry-server:dev .
+docker build -f packages/registry-server/Dockerfile -t omriashkenazi/dynamico-registry:dev .
 ```
 
 The build is multi-stage:
@@ -253,4 +256,4 @@ Final image is roughly 150 MB compressed.
 
 ## License
 
-MIT.
+[Apache 2.0](https://github.com/omriaskenazi/dynamico/blob/main/LICENSE).
