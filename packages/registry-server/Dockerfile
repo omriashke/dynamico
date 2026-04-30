@@ -1,10 +1,10 @@
 # syntax=docker/dockerfile:1.7
 #
-# Multi-stage build for @dynamico/registry-server.
+# Multi-stage build for @omriashke/dynamico-registry.
 #
 # Stage 1 (builder): install the full pnpm workspace and compile every package
-#   the registry-server depends on (which means @dynamico/core too, since it's
-#   a workspace dep). We also use `pnpm deploy` here to produce a flat,
+#   the registry depends on (which means @omriashke/dynamico-core too, since
+#   it's a workspace dep). We also use `pnpm deploy` here to produce a flat,
 #   self-contained directory with only the prod deps the server actually needs.
 #
 # Stage 2 (runner): a tiny non-root Node Alpine image that serves the deployed
@@ -33,21 +33,21 @@ COPY packages/registry-server/package.json packages/registry-server/
 # devDeps (we need typescript / tsc to build).
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile \
-      --filter @dynamico/registry-server... \
-      --filter @dynamico/core
+      --filter @omriashke/dynamico-registry... \
+      --filter @omriashke/dynamico-core
 
 # Copy sources and build.
 COPY packages/core/ packages/core/
 COPY packages/registry-server/ packages/registry-server/
-RUN pnpm --filter @dynamico/core build \
- && pnpm --filter @dynamico/registry-server build
+RUN pnpm --filter @omriashke/dynamico-core build \
+ && pnpm --filter @omriashke/dynamico-registry build
 
 # Produce a self-contained, prod-only deployment for the registry server.
-# `pnpm deploy --legacy` resolves workspace deps (including @dynamico/core)
-# and writes everything into /out as a normal node_modules tree. The
-# `--legacy` flag is required on pnpm >=10 unless you opt every workspace
-# package into injected dependencies.
-RUN pnpm deploy --legacy --filter=@dynamico/registry-server --prod /out
+# `pnpm deploy --legacy` resolves workspace deps (including
+# @omriashke/dynamico-core) and writes everything into /out as a normal
+# node_modules tree. The `--legacy` flag is required on pnpm >=10 unless
+# you opt every workspace package into injected dependencies.
+RUN pnpm deploy --legacy --filter=@omriashke/dynamico-registry --prod /out
 
 # ---- Stage 2: runner ----------------------------------------------------------
 FROM node:${NODE_VERSION}-alpine AS runner
