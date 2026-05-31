@@ -23,7 +23,10 @@ export function loadModule(
     if (name.startsWith("./") || name.startsWith("../") || name.startsWith("/")) {
       return requireRelative(name);
     }
-    if (Object.prototype.hasOwnProperty.call(scope, name)) {
+    // Use `in` (triggers Proxy `has` traps) so that hosts can supply scope
+    // via a Proxy and resolve module bindings lazily. Falls back to
+    // `hasOwnProperty` semantics for plain object scopes.
+    if (name in scope) {
       return scope[name];
     }
     throw new Error(

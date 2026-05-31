@@ -1,10 +1,18 @@
 import chokidar from "chokidar";
 import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { basename, extname, resolve } from "node:path";
 
 export interface DevOptions {
   dir: string;
   registryUrl: string;
+}
+
+const TEST_RE = /\.test\.(tsx|jsx|ts|js)$/;
+
+function testPathFor(sourcePath: string): string {
+  const ext = extname(sourcePath);
+  return sourcePath.slice(0, -ext.length) + ".test" + ext;
 }
 
 export async function dev(opts: DevOptions): Promise<void> {
@@ -22,26 +30,39 @@ export async function dev(opts: DevOptions): Promise<void> {
       /(?:^|[\\/])(node_modules|\.git|dist)(?:[\\/]|$)/.test(path),
   });
 
-  const upload = async (file: string) => {
-    const ext = extname(file);
+  /**
+   * Re-upload the component at `componentPath` along with its co-located
+   * test file (if any). The registry rejects the push if no test is sent
+   * and DYNAMICO_TEST_SKIP isn't set on the server, so we always include
+   * the test when present.
+   */
+  const upload = async (componentPath: string) => {
+    const ext = extname(componentPath);
     if (![".tsx", ".jsx", ".ts", ".js"].includes(ext)) return;
-    const name = basename(file, ext);
+    const name = basename(componentPath, ext);
     try {
-      const source = await readFile(file, "utf8");
+      const source = await readFile(componentPath, "utf8");
+      const testPath = testPathFor(componentPath);
+      let test: string | undefined;
+      if (existsSync(testPath)) {
+        try { test = await readFile(testPath, "utf8"); } catch { /* ignore */ }
+      }
+      const body: { name: string; source: string; test?: string } = { name, source };
+      if (test !== undefined) body.test = test;
       const res = await fetch(`${registryUrl}/upload`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name, source }),
+        body: JSON.stringify(body),
       });
-      if (!res.ok) {
+      if (!res.ok && res.status !== 422) {
         log(`! ${name}: registry returned ${res.status}`);
         return;
       }
-      const body = (await res.json()) as { version: string; error?: { message: string } };
-      if (body.error) {
-        log(`x ${name}@${body.version} compile error: ${body.error.message}`);
+      const data = (await res.json()) as { version: string; error?: { kind: string; message: string } };
+      if (data.error) {
+        log(`x ${name}@${data.version} ${data.error.kind}: ${data.error.message}`);
       } else {
-        log(`> ${name}@${body.version}`);
+        log(`> ${name}@${data.version}${test === undefined ? "  (no test)" : ""}`);
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -49,8 +70,23 @@ export async function dev(opts: DevOptions): Promise<void> {
     }
   };
 
-  watcher.on("add", upload);
-  watcher.on("change", upload);
+  /**
+   * On any source change, route to the right thing:
+   *   - Foo.tsx changed         -> upload Foo (with Foo.test.tsx if present)
+   *   - Foo.test.tsx changed    -> upload Foo so the new test re-validates it
+   */
+  const onChange = async (file: string) => {
+    if (TEST_RE.test(file)) {
+      const componentPath = file.replace(TEST_RE, ".$1");
+      if (existsSync(componentPath)) await upload(componentPath);
+      else log(`! test file ${basename(file)} has no paired component; skipping`);
+      return;
+    }
+    await upload(file);
+  };
+
+  watcher.on("add", onChange);
+  watcher.on("change", onChange);
   watcher.on("error", (err) => log(`! watcher error: ${String(err)}`));
 }
 

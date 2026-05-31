@@ -11,6 +11,7 @@ const TYPE_CHECKS: Record<string, (v: unknown) => boolean> = {
   boolean: (v) => typeof v === "boolean",
   object: (v) => typeof v === "object" && v !== null && !Array.isArray(v),
   array: (v) => Array.isArray(v),
+  function: (v) => typeof v === "function",
   any: () => true,
 };
 
@@ -39,5 +40,6 @@ export function validateProps(
 function describe(v: unknown): string {
   if (v === null) return "null";
   if (Array.isArray(v)) return "array";
+  if (typeof v === "function") return "function";
   return typeof v;
 }

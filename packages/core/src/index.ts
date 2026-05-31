@@ -23,6 +23,7 @@ export { validateProps, type PropsValidationResult } from "./propsSchema.js";
 export {
   createRuntime,
   type RuntimeAPI,
+  type CreateRuntimeOptions,
   type DynamicoProviderProps,
   type DynamicComponentProps,
 } from "./react/createRuntime.js";

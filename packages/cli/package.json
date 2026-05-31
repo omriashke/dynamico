@@ -1,6 +1,6 @@
 {
   "name": "@omriashke/dynamico-cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "CLI for dynamico: push, pull, list, search, edit, and remove components from a live registry.",
   "license": "Apache-2.0",
   "type": "module",

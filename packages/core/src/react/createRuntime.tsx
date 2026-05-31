@@ -14,6 +14,13 @@ export interface RuntimeAPI {
   DynamicoProvider: React.ComponentType<DynamicoProviderProps>;
   DynamicComponent: React.ComponentType<DynamicComponentProps>;
   useDynamico: (name: string) => RegistryEntry | undefined;
+  /**
+   * Read the merged host scope from inside React. Useful in dynamic
+   * components that want to introspect what the host gave them, or to
+   * conditionally use scope features (`useScope()['@my/haptics']` may be
+   * undefined if the host didn't register it).
+   */
+  useScope: () => Scope;
 }
 
 export interface DynamicoProviderProps {
@@ -33,13 +40,42 @@ interface RuntimeContextValue {
   registry: Registry;
 }
 
-export function createRuntime(defaultScope: Scope): RuntimeAPI {
+/**
+ * Optional renderer-specific knobs passed by the platform package
+ * (`@omriashke/dynamico-web`, `@omriashke/dynamico-native`).
+ *
+ * The web runtime is fine with the built-in `defaultErrorView` (which renders
+ * a plain text Fragment via React.createElement), since DOM accepts text
+ * nodes anywhere. React Native does NOT — bare strings throw "Text strings
+ * must be rendered within a <Text> component". The native package supplies
+ * its own `defaultErrorFallback` that wraps the message in `<Text>`.
+ */
+export interface CreateRuntimeOptions {
+  defaultErrorFallback?: React.ComponentType<{ error: DynamicError }>;
+}
+
+export function createRuntime(
+  defaultScope: Scope,
+  options: CreateRuntimeOptions = {},
+): RuntimeAPI {
   const Ctx = React.createContext<RuntimeContextValue | null>(null);
+  const PlatformDefaultErrorFallback = options.defaultErrorFallback;
 
   function DynamicoProvider({ source, scope, children }: DynamicoProviderProps) {
     const registry = React.useMemo(() => {
       const merged: Scope = { ...defaultScope, ...(scope ?? {}) };
       return new Registry(source, merged);
+    }, [source, scope]);
+
+    // Auto-report host scope to the registry on mount so the server-side
+    // test validator can enforce "every component imports something the host
+    // actually provides". Source implementations that don't support scope
+    // reporting (e.g. local in-memory sources) leave the call as a no-op.
+    React.useEffect(() => {
+      const merged: Scope = { ...defaultScope, ...(scope ?? {}) };
+      const keys = Object.keys(merged);
+      void source.reportScope?.(keys, "host");
+      // Re-run whenever the set of keys changes (added/removed providers).
     }, [source, scope]);
 
     const value = React.useMemo<RuntimeContextValue>(() => ({ registry }), [registry]);
@@ -52,6 +88,10 @@ export function createRuntime(defaultScope: Scope): RuntimeAPI {
       throw new Error("dynamico: useDynamico/DynamicComponent must be inside <DynamicoProvider>");
     }
     return ctx.registry;
+  }
+
+  function useScope(): Scope {
+    return useRegistry().getScope();
   }
 
   function useDynamico(name: string): RegistryEntry | undefined {
@@ -126,7 +166,24 @@ export function createRuntime(defaultScope: Scope): RuntimeAPI {
     );
   }
 
-  return { DynamicoProvider, DynamicComponent, useDynamico };
+  function renderError(
+    errorFallback: DynamicComponentProps["errorFallback"],
+    error: DynamicError,
+  ): React.ReactNode {
+    if (errorFallback) {
+      if (typeof errorFallback === "function") {
+        const Fallback = errorFallback as React.ComponentType<{ error: DynamicError }>;
+        return <Fallback error={error} />;
+      }
+      return errorFallback;
+    }
+    if (PlatformDefaultErrorFallback) {
+      return <PlatformDefaultErrorFallback error={error} />;
+    }
+    return defaultErrorView(error);
+  }
+
+  return { DynamicoProvider, DynamicComponent, useDynamico, useScope };
 }
 
 function pickDefault(factory: ComponentFactory): unknown {
@@ -137,18 +194,6 @@ function pickDefault(factory: ComponentFactory): unknown {
   }
   if (typeof factory === "function") return factory;
   return undefined;
-}
-
-function renderError(
-  errorFallback: DynamicComponentProps["errorFallback"],
-  error: DynamicError,
-): React.ReactNode {
-  if (!errorFallback) return defaultErrorView(error);
-  if (typeof errorFallback === "function") {
-    const Fallback = errorFallback as React.ComponentType<{ error: DynamicError }>;
-    return <Fallback error={error} />;
-  }
-  return errorFallback;
 }
 
 function defaultErrorView(error: DynamicError): React.ReactElement {

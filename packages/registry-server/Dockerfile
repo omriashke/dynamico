@@ -27,6 +27,7 @@ RUN npm install -g pnpm@${PNPM_VERSION}
 # well across source changes.
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc tsconfig.base.json ./
 COPY packages/core/package.json packages/core/
+COPY packages/dynamico-validator/package.json packages/dynamico-validator/
 COPY packages/registry-server/package.json packages/registry-server/
 
 # Install only the workspace projects we need to build the server, with all
@@ -34,12 +35,15 @@ COPY packages/registry-server/package.json packages/registry-server/
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile \
       --filter @omriashke/dynamico-registry... \
+      --filter @omriashke/dynamico-validator... \
       --filter @omriashke/dynamico-core
 
 # Copy sources and build.
 COPY packages/core/ packages/core/
+COPY packages/dynamico-validator/ packages/dynamico-validator/
 COPY packages/registry-server/ packages/registry-server/
 RUN pnpm --filter @omriashke/dynamico-core build \
+ && pnpm --filter @omriashke/dynamico-validator build \
  && pnpm --filter @omriashke/dynamico-registry build
 
 # Produce a self-contained, prod-only deployment for the registry server.

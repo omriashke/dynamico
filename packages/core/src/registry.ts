@@ -37,6 +37,15 @@ export class Registry {
     this.scope = scope;
   }
 
+  /**
+   * Return the merged host scope. Dynamic components reach the same values
+   * via `require(name)`, but `getScope()` lets host code (or `useScope()`
+   * inside a dynamic component) introspect what's available.
+   */
+  getScope(): Scope {
+    return this.scope;
+  }
+
   /** Get the current entry for a name, if any. */
   peek(name: string): RegistryEntry | undefined {
     return this.entries.get(name);

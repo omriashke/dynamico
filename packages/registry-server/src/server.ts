@@ -7,6 +7,7 @@ import { compile } from "./compile.js";
 import { registerAuth, type AuthOptions } from "./auth.js";
 import { FilesystemSourceStore } from "./sourceStore.js";
 import { searchEntries } from "./search.js";
+import { ScopeCache } from "./scopeCache.js";
 
 export interface CreateServerOptions {
   /** Optional logger config. Default: pretty in dev, json in prod. */
@@ -30,8 +31,14 @@ interface UploadBody {
   name?: string;
   source?: string;
   description?: string;
-  /** Bulk variant: { components: [{name, source, description?}, ...] } */
-  components?: Array<{ name: string; source: string; description?: string }>;
+  /**
+   * Co-located test file source. Required (unless DYNAMICO_TEST_SKIP=1 on the
+   * server). The test must export default an async function; if it throws,
+   * the push is rejected.
+   */
+  test?: string;
+  /** Bulk variant: { components: [{name, source, test, description?}, ...] } */
+  components?: Array<{ name: string; source: string; test?: string; description?: string }>;
 }
 
 interface UploadQuery {
@@ -43,6 +50,7 @@ export async function createServer(options: CreateServerOptions): Promise<{
   app: FastifyInstance;
   store: Store;
   sourceStore: FilesystemSourceStore;
+  scopeCache: ScopeCache;
 }> {
   if (!options?.sourceDir) {
     throw new Error("createServer: options.sourceDir is required");
@@ -59,10 +67,12 @@ export async function createServer(options: CreateServerOptions): Promise<{
   await app.register(websocket);
   await registerAuth(app, options.auth);
 
+  const scopeCache = new ScopeCache(options.sourceDir);
   const sourceStore = new FilesystemSourceStore({
     dir: options.sourceDir,
     store,
     log: (msg) => app.log.info(msg),
+    scopeCache,
   });
   await sourceStore.start();
   app.addHook("onClose", async () => {
@@ -70,6 +80,60 @@ export async function createServer(options: CreateServerOptions): Promise<{
   });
 
   app.get("/health", async () => ({ ok: true }));
+
+  /**
+   * Current host scope (the list of bare specifiers the connected app's
+   * DynamicoProvider exposes). Pushes are validated against this list — any
+   * component that imports a specifier outside it is rejected.
+   *
+   * Returns { keys: null } if no host has reported yet (gate stays permissive
+   * in that case).
+   */
+  app.get("/scope", async () => {
+    const report = scopeCache.get();
+    return report ?? { keys: null, reportedAt: null };
+  });
+
+  /**
+   * Hosts (the @omriashke/dynamico-native client SDK) auto-report their
+   * scope on mount. Body: { keys: string[], reportedBy?: string }.
+   * The registry caches this and uses it to validate subsequent pushes.
+   */
+  app.post<{ Body: { keys?: unknown; reportedBy?: unknown } }>(
+    "/scope",
+    async (req, reply) => {
+      const body = req.body ?? {};
+      if (!Array.isArray(body.keys) || !body.keys.every((k) => typeof k === "string")) {
+        reply.code(400);
+        return { error: 'expected JSON body { keys: string[], reportedBy?: string }' };
+      }
+      const previous = scopeCache.get();
+      const report = scopeCache.set({
+        keys: body.keys as string[],
+        reportedBy: typeof body.reportedBy === "string" ? body.reportedBy : undefined,
+      });
+      app.log.info(
+        { keys: report.keys.length, reportedBy: report.reportedBy },
+        "scope reported",
+      );
+
+      // Re-validate the entire registry against the new scope whenever the
+      // set of keys changes. This catches "stale acceptance" — components
+      // accepted earlier (under a more permissive scope) but no longer
+      // compatible with what the app actually exposes.
+      const changed =
+        !previous ||
+        previous.keys.length !== report.keys.length ||
+        previous.keys.some((k, i) => k !== report.keys[i]);
+      if (changed) {
+        sourceStore.revalidateAll().catch((err) => {
+          app.log.error({ err: String(err) }, "revalidateAll failed");
+        });
+      }
+
+      return { ok: true, ...report };
+    },
+  );
 
   /** Listing: name + version + status + description. */
   app.get("/components", async () => {
@@ -203,7 +267,7 @@ export async function createServer(options: CreateServerOptions): Promise<{
 
       if (Array.isArray(body.components)) {
         const results = await Promise.all(
-          body.components.map(async ({ name, source, description }) => {
+          body.components.map(async ({ name, source, test, description }) => {
             if (!name || typeof source !== "string") {
               return {
                 name: name ?? "<missing>",
@@ -212,7 +276,7 @@ export async function createServer(options: CreateServerOptions): Promise<{
             }
             if (dryRun) return await compile(name, source);
             try {
-              return await sourceStore.write(name, source, description);
+              return await sourceStore.write(name, source, description, test);
             } catch (err) {
               const msg = err instanceof Error ? err.message : String(err);
               return { name, version: "", error: { kind: "compile" as const, message: msg } };
@@ -224,11 +288,11 @@ export async function createServer(options: CreateServerOptions): Promise<{
         return { dryRun, results };
       }
 
-      const { name, source, description } = body;
+      const { name, source, test, description } = body;
       if (!name || typeof source !== "string") {
         reply.code(400);
         return {
-          error: "expected JSON body { name: string, source: string, description?: string } or { components: [...] }",
+          error: "expected JSON body { name: string, source: string, test?: string, description?: string } or { components: [...] }",
         };
       }
 
@@ -239,7 +303,7 @@ export async function createServer(options: CreateServerOptions): Promise<{
       }
 
       try {
-        const compiled = await sourceStore.write(name, source, description);
+        const compiled = await sourceStore.write(name, source, description, test);
         if (compiled.error) reply.code(422);
         return { dryRun, ...compiled };
       } catch (err) {
@@ -264,7 +328,7 @@ export async function createServer(options: CreateServerOptions): Promise<{
     });
   });
 
-  return { app, store, sourceStore };
+  return { app, store, sourceStore, scopeCache };
 }
 
 function indexManifest<T extends { name: string }>(list: T[]): Map<string, T> {

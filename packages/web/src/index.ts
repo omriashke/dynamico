@@ -6,6 +6,7 @@ const runtime = createRuntime(defaultScope);
 export const DynamicoProvider = runtime.DynamicoProvider;
 export const DynamicComponent = runtime.DynamicComponent;
 export const useDynamico = runtime.useDynamico;
+export const useScope = runtime.useScope;
 
 export { defaultScope };
 export { createRemoteSource } from "@omriashke/dynamico-core";

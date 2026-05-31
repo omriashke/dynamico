@@ -11,6 +11,18 @@ export interface RemoteSourceOptions {
   WebSocket?: typeof WebSocket;
   /** Reconnection backoff in ms. Default: 1000. */
   reconnectMs?: number;
+  /**
+   * Headers to send on every request. Called on each HTTP fetch and on each
+   * WebSocket reconnect, so the function can return a freshly-rotated token.
+   *
+   * - HTTP: merged into the `Authorization: ...` / `x-api-key: ...` request headers.
+   * - WebSocket: passed as `new WebSocket(url, undefined, { headers })`. This
+   *   works on React Native (which extends the standard constructor); browsers
+   *   silently ignore it because the spec doesn't allow custom WS handshake
+   *   headers. For browsers behind authenticated reverse proxies, use a
+   *   query-string token in `wsUrl` or front the registry with cookie auth.
+   */
+  headers?: () => Record<string, string>;
 }
 
 /**
@@ -47,7 +59,18 @@ export function createRemoteSource(options: RemoteSourceOptions): Source {
   function connect(): void {
     if (disposed) return;
     try {
-      socket = new WSCtor(wsUrl);
+      const hdrs = options.headers?.();
+      // RN's WebSocket constructor accepts a third {headers} arg that lets us
+      // attach Bearer / x-api-key tokens to the upgrade request. The standard
+      // browser WebSocket ignores extra constructor args, so this is a no-op
+      // there (use cookies / a query-string token instead).
+      socket = hdrs
+        ? new (WSCtor as unknown as new (
+            url: string,
+            protocols?: string | string[],
+            options?: { headers?: Record<string, string> },
+          ) => WebSocket)(wsUrl, undefined, { headers: hdrs })
+        : new WSCtor(wsUrl);
     } catch (err) {
       scheduleReconnect();
       return;
@@ -88,7 +111,13 @@ export function createRemoteSource(options: RemoteSourceOptions): Source {
 
   return {
     async fetch(name: string): Promise<CompiledModule> {
-      const res = await fetchImpl(`${httpUrl}/component/${encodeURIComponent(name)}`);
+      const init: RequestInit | undefined = options.headers
+        ? { headers: options.headers() }
+        : undefined;
+      const res = await fetchImpl(
+        `${httpUrl}/component/${encodeURIComponent(name)}`,
+        init,
+      );
       if (!res.ok) {
         return {
           name,
@@ -106,6 +135,27 @@ export function createRemoteSource(options: RemoteSourceOptions): Source {
       return () => {
         listeners.delete(listener);
       };
+    },
+    /**
+     * Tell the registry what bare specifiers the host's scope exposes. The
+     * registry uses this to validate that every component's imports resolve
+     * against something the host actually provides — so a typo or a forgotten
+     * scope entry is caught at push time, not at navigation time.
+     *
+     * Best-effort: failures (network, 5xx, server doesn't support /scope) are
+     * silently swallowed; they don't block the app from running.
+     */
+    async reportScope(keys, reportedBy) {
+      try {
+        const baseHeaders = options.headers?.() ?? {};
+        await fetchImpl(`${httpUrl}/scope`, {
+          method: "POST",
+          headers: { "content-type": "application/json", ...baseHeaders },
+          body: JSON.stringify({ keys: [...keys], reportedBy }),
+        });
+      } catch {
+        /* best-effort: never block the host on this */
+      }
     },
     dispose() {
       disposed = true;

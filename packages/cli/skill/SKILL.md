@@ -20,11 +20,78 @@ That means the agent can do a proper edit loop:
 4. **Validate** — `dynamico push <name> --source <file> --dry-run --json` to get structured diagnostics without writing.
 5. **Commit** — `dynamico push <name> --source <file>` to write + broadcast.
 
+## Test gate (every push is server-validated)
+
+**Every component must ship with a co-located `Foo.test.tsx`.** The registry
+runs the test in a Node worker thread (5s timeout) before accepting the
+push; missing or failing tests cause HTTP 422 and the component is not
+served to clients.
+
+```
+my-components/
+├── Counter.tsx
+└── Counter.test.tsx     ← auto-discovered by `dynamico push` and `dynamico dev`
+```
+
+A test is just a `.tsx` whose default export is an async function that
+exercises the component:
+
+```tsx
+import * as React from 'react';
+import { render, press, findByText } from '@omriashke/dynamico-validator';
+import Counter from './Counter';
+
+export default async function test() {
+  const tree = render(<Counter initial={0} />);
+  press(findByText(tree, '+'));
+  // throw to fail; no assertion = pass
+}
+```
+
+`@omriashke/dynamico-validator` exports `render`, `press`, `longPress`,
+`changeText`, `findByText`, `findAllByType`, `queryByText`, `sleep`,
+`flush`, `expect`, and `setHostScope`. It auto-stubs unknown modules to a
+permissive Proxy (callable, iterable as `[]`, string-coercible), so most
+components render without setup. For hooks whose return shape matters, call
+`setHostScope({ '@my/hooks': { useThing: () => ({...}) } })` before
+`render()`.
+
+Two rejection categories:
+
+| Phase   | Meaning |
+|---------|---------|
+| `scope` | Component imports a bare specifier that's not in the host's reported scope. Caught before the device sees it. |
+| `test`  | The test threw (a render crash, an `expect` failure, a timeout). |
+
+Operator escape hatch: set `DYNAMICO_TEST_SKIP=1` on the registry process to
+bypass the gate entirely. **There is no author-side `--skip-tests` flag.**
+
+## Host scope (auto-reported)
+
+The host app provides modules via `<DynamicoProvider scope={...}>`. On
+mount, the provider POSTs `Object.keys(scope)` to `POST /scope`; the
+registry caches the list and uses it to validate imports on every push.
+
+The agent never needs to configure this — adding a key to the host's scope
+object and reloading the app is enough. To inspect the cached scope:
+
+```bash
+curl -s $DYNAMICO_REGISTRY/scope -H "authorization: Bearer $DYNAMICO_TOKEN"
+```
+
+Response shape:
+```json
+{ "keys": ["react", "react-native", ...], "reportedBy": "host", "reportedAt": 1780200969937 }
+```
+
+Returns `{ "keys": null }` if no host has reported yet (gate stays
+permissive in that case).
+
 ## Subcommands
 
 ```
 dynamico push <name> [--source <path> | --stdin | --dir <path>]
-                     [--description <text>] [--dry-run] [--json]
+                     [--description <text>] [--test <path>] [--dry-run] [--json]
 dynamico pull <name> [--source] [--out <path>] [--json]
 dynamico list [--json]
 dynamico search <query> [--json]
@@ -44,9 +111,13 @@ Common flags (every command): `--registry`, `--token`, `--user`, `--password`, `
 | 0    | success                                                                     |
 | 1    | client/usage error (missing arg, file not found, network)                   |
 | 2    | registry rejected the call (auth, 4xx, 5xx)                                 |
-| 3    | source failed validation (compile or typecheck)                             |
+| 3    | source failed validation (compile, typecheck, **test gate**, or **scope gate**) |
 
-**Do NOT retry on exit 3 without fixing the source first.** Parse `error.diagnostics` from `--json` output.
+**Do NOT retry on exit 3 without fixing the source first.** Parse `error.diagnostics` and `error.kind` from `--json` output:
+- `kind: "compile"` — Babel/TS error, fix the syntax.
+- `kind: "test"` — test threw; read `error.message` for the underlying cause.
+  - `phase: "scope"` inside the diagnostic = unknown bare import; add it to the host scope or remove the import.
+  - `phase: "test"` = runtime error during `render()`; fix the component or its test.
 
 ## Key workflow: update an existing component
 
@@ -135,13 +206,16 @@ Omission = deletion.
 ## Authoring rules
 
 - **Must have a default export.** Missing default → code `DYN0001`.
-- **Only import the host scope.** Web: `"react"`. Expo: `"react"` and `"react-native"`. Plus anything the host registered via `<DynamicoProvider scope={...}>`.
+- **Must ship with a co-located `.test.tsx`** (see "Test gate" above). Missing test → push rejected unless `DYNAMICO_TEST_SKIP=1` on the server.
+- **Only import the host scope.** Web: `"react"`. Expo: `"react"` and `"react-native"`. Plus anything the host registered via `<DynamicoProvider scope={...}>`. Imports outside the reported scope are rejected at push time with a `'foo' is not in host scope` error.
 - **Relative imports resolve to other dynamic components.** `import Other from "./Other"` expects `Other` to exist in the registry; it's fetched lazily and hot-swapped independently.
-- **Props must be JSON-serializable** (primitives, arrays, plain objects). Functions live in scope, not props.
+- **Props must be JSON-serializable** (primitives, arrays, plain objects, **or** functions — when the schema marks them as `type: "function"`).
 - **Classic JSX runtime:** you must `import React from "react"` (or `import * as React`).
-- **Optional:** export `const propsSchema = { ... } as const` for runtime prop validation. Keys map to `{ type: "string" | "number" | "boolean" | "object" | "array" | "any", required?: boolean }`.
+- **Optional:** export `const propsSchema = { ... } as const` for runtime prop validation. Keys map to `{ type: "string" | "number" | "boolean" | "object" | "array" | "function" | "any", required?: boolean }`.
 
 ## Minimal component template
+
+`MyComponent.tsx`:
 
 ```tsx
 import React from "react";
@@ -152,6 +226,19 @@ export const propsSchema = {
 
 export default function MyComponent({ label = "hi" }: { label?: string }) {
   return <div>{label}</div>;
+}
+```
+
+`MyComponent.test.tsx` (required — push is rejected without it):
+
+```tsx
+import React from "react";
+import { render } from "@omriashke/dynamico-validator";
+import MyComponent from "./MyComponent";
+
+export default async function test() {
+  render(<MyComponent />);
+  render(<MyComponent label="custom" />);
 }
 ```
 

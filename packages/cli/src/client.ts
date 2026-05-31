@@ -37,8 +37,8 @@ export interface UploadResponse {
 export async function upload(
   opts: ClientOptions,
   body:
-    | { name: string; source: string; description?: string }
-    | { components: Array<{ name: string; source: string; description?: string }> },
+    | { name: string; source: string; description?: string; test?: string }
+    | { components: Array<{ name: string; source: string; description?: string; test?: string }> },
   dryRun: boolean,
 ): Promise<{ status: number; data: UploadResponse }> {
   const url = `${opts.registry.replace(/\/$/, "")}/upload${dryRun ? "?dryRun=true" : ""}`;

@@ -3,7 +3,19 @@ export type Version = string;
 export type Scope = Record<string, unknown>;
 
 export interface PropsSchemaField {
-  type: "string" | "number" | "boolean" | "object" | "array" | "any";
+  /**
+   * Runtime type. `function` validates `typeof v === 'function'` — useful for
+   * dynamic screens/components that take callbacks. Function values render
+   * fine inside dynamic components; the schema just lets you require them.
+   */
+  type:
+    | "string"
+    | "number"
+    | "boolean"
+    | "object"
+    | "array"
+    | "function"
+    | "any";
   required?: boolean;
 }
 
@@ -37,7 +49,7 @@ export interface CompiledModuleError {
   version: Version;
   code?: undefined;
   error: {
-    kind: "compile" | "typecheck";
+    kind: "compile" | "typecheck" | "render" | "test";
     message: string;
     stack?: string;
     diagnostics?: Diagnostic[];
@@ -93,4 +105,13 @@ export interface Source {
   subscribe(listener: (update: SourceUpdate) => void): () => void;
   /** Optional disposal hook. */
   dispose?(): void;
+  /**
+   * Optional: report the host's scope keys to the registry so the
+   * server-side validator knows what bare specifiers it can expect
+   * components to import. Called once on DynamicoProvider mount.
+   *
+   * Remote sources (createRemoteSource) implement this as POST /scope.
+   * Local/test sources can leave it undefined.
+   */
+  reportScope?(keys: readonly string[], reportedBy?: string): Promise<void>;
 }
