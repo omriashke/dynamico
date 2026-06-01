@@ -35,6 +35,11 @@ export async function registerAuth(
   app.addHook("onRequest", async (req: FastifyRequest, reply: FastifyReply) => {
     if (publicRoutes.has(req.routeOptions?.url ?? req.url)) return;
 
+    // Read-only methods are always public — clients fetch components and
+    // subscribe to updates without credentials. Only writes (push, delete,
+    // config replace, metadata patch) require auth.
+    if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") return;
+
     if (options.allowIps?.length && ipMatches(req.ip, options.allowIps)) return;
 
     const header = req.headers["authorization"];
