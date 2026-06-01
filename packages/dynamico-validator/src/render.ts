@@ -31,7 +31,13 @@ export interface RenderResult {
 }
 
 /**
- * Mount a component using react-test-renderer with `act()` semantics.
+ * Mount a component using react-test-renderer.
+ *
+ * `.root` is a lazy getter so it is never accessed during construction —
+ * React 19 production builds don't export `act`, and eagerly reading `.root`
+ * before React has committed the tree throws "Can't access .root on unmounted
+ * test renderer". Deferring the access to call-time (when the test actually
+ * needs it) avoids the race.
  *
  * `RenderOptions.scope` is currently a hint surface only — the actual scope
  * is wired up by the runner before render() is called (see runTest.ts), so
@@ -40,22 +46,15 @@ export interface RenderResult {
  * second arg, so use it to control what hooks / modules the component sees.
  */
 export function render(element: React.ReactElement, _opts: RenderOptions = {}): RenderResult {
-  let renderer!: ReactTestRenderer;
-  TestRenderer.act(() => {
-    renderer = TestRenderer.create(element);
-  });
+  const renderer = TestRenderer.create(element);
   return {
-    root: renderer.root,
+    get root(): ReactTestInstance { return renderer.root; },
     renderer,
     update(next: React.ReactElement) {
-      TestRenderer.act(() => {
-        renderer.update(next);
-      });
+      renderer.update(next);
     },
     unmount() {
-      TestRenderer.act(() => {
-        renderer.unmount();
-      });
+      renderer.unmount();
     },
     toJSON() {
       return renderer.toJSON();

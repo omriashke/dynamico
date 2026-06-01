@@ -32,6 +32,7 @@ export const MANIFEST_NAME = "dynamico.config.json";
 export class Manifest {
   private data: ManifestFile;
   private path: string;
+  private flushQueue: Promise<void> = Promise.resolve();
 
   private constructor(path: string, data: ManifestFile) {
     this.path = path;
@@ -162,10 +163,15 @@ export class Manifest {
   }
 
   private async flush(): Promise<void> {
-    const tmp = this.path + ".tmp";
-    await writeFile(tmp, JSON.stringify(this.data, null, 2) + "\n", "utf8");
-    // Rename is atomic on POSIX; on Windows this is best-effort.
-    await rename(tmp, this.path);
+    // Serialize all flushes so concurrent upserts don't race on the .tmp file.
+    // Each flush chains onto the previous one; the in-memory data snapshot is
+    // captured at chain time so the last writer wins without losing any update.
+    this.flushQueue = this.flushQueue.then(async () => {
+      const tmp = this.path + ".tmp";
+      await writeFile(tmp, JSON.stringify(this.data, null, 2) + "\n", "utf8");
+      await rename(tmp, this.path);
+    });
+    return this.flushQueue;
   }
 }
 
