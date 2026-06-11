@@ -7,6 +7,7 @@ import { compile } from "./compile.js";
 import { Manifest, MANIFEST_NAME, type ManifestFile } from "./manifest.js";
 import type { Store } from "./store.js";
 import { loadPolicyFromEnv, validate } from "./validate.js";
+import { isBookConfigPath } from "./bookValidate.js";
 import type { ScopeCache } from "./scopeCache.js";
 
 /**
@@ -391,6 +392,7 @@ export class FilesystemSourceStore {
           component: compiled,
           testSource,
           testExt: extname(testRel),
+          sourceDir: this.dir,
         },
         { ...policy, ...(allowedScope ? { allowedScope } : {}) },
       );
@@ -411,6 +413,11 @@ export class FilesystemSourceStore {
 
   private async handleFileChange(absPath: string): Promise<void> {
     const rel = relative(this.dir, absPath);
+    if (isBookConfigPath(rel)) {
+      this.log(`book config changed (${rel}); re-validating components`);
+      await this.revalidateAll();
+      return;
+    }
     const ext = extname(rel);
     if (!SOURCE_EXTS.includes(ext as SourceExt)) return;
 

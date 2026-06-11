@@ -1,0 +1,223 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --db-bg: #f4f4f5;
+  --db-surface: #ffffff;
+  --db-sidebar: #18181b;
+  --db-sidebar-text: #e4e4e7;
+  --db-sidebar-muted: #71717a;
+  --db-border: #e4e4e7;
+  --db-accent: #6366f1;
+  --db-error-bg: #fef2f2;
+  --db-error-text: #991b1b;
+  --db-font: 'IBM Plex Sans', system-ui, sans-serif;
+  --db-mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.db-root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--db-font);
+  background: var(--db-bg);
+  color: #18181b;
+}
+
+.db-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: var(--db-surface);
+  border-bottom: 1px solid var(--db-border);
+}
+
+.db-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.db-brand-mark {
+  color: var(--db-accent);
+  font-size: 12px;
+}
+
+.db-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: #71717a;
+}
+
+.db-registry-url {
+  font-family: var(--db-mono);
+  font-size: 11px;
+}
+
+.db-status {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #d4d4d8;
+}
+
+.db-status-ok {
+  background: #22c55e;
+}
+
+.db-status-error {
+  background: #ef4444;
+}
+
+.db-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.db-sidebar {
+  flex-shrink: 0;
+  background: var(--db-sidebar);
+  color: var(--db-sidebar-text);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  border-right: 1px solid #27272a;
+}
+
+.db-sidebar-section {
+  padding: 8px 8px 16px;
+}
+
+.db-sidebar-heading {
+  padding: 12px 12px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--db-sidebar-muted);
+}
+
+.db-sidebar-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.db-sidebar-item {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: inherit;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 2px;
+}
+
+.db-sidebar-item:hover {
+  background: #27272a;
+}
+
+.db-sidebar-item-active {
+  background: #3f3f46;
+}
+
+.db-sidebar-item-id {
+  font-family: var(--db-mono);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.db-sidebar-item-label {
+  font-size: 11px;
+  color: var(--db-sidebar-muted);
+}
+
+.db-sidebar-loading,
+.db-sidebar-error {
+  padding: 16px 12px;
+  font-size: 12px;
+  color: var(--db-sidebar-muted);
+}
+
+.db-sidebar-error {
+  color: #fca5a5;
+}
+
+.db-canvas {
+  flex: 1;
+  overflow: auto;
+  background: var(--db-surface);
+  /* Newscast / RN preview components use fontFamily: 'Inter' */
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.db-empty {
+  padding: 48px;
+  color: #71717a;
+  text-align: center;
+}
+
+.db-loading {
+  color: #71717a;
+  font-size: 13px;
+  font-style: italic;
+}
+
+.db-error {
+  max-width: 480px;
+  padding: 16px;
+  border-radius: 8px;
+  background: var(--db-error-bg);
+  color: var(--db-error-text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.db-info {
+  max-width: 520px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #52525b;
+}
+
+.db-info code {
+  font-family: var(--db-mono);
+  font-size: 12px;
+  background: #f4f4f5;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.db-variant-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.db-variant-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.db-variant-label {
+  width: 200px;
+  flex-shrink: 0;
+  font-family: var(--db-mono);
+  font-size: 13px;
+  color: #71717a;
+}

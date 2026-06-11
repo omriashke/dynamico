@@ -1,6 +1,9 @@
-import Fastify, { type FastifyInstance } from "fastify";
+import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import websocket from "@fastify/websocket";
 import cors from "@fastify/cors";
+import { createHash } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { CompiledModule } from "@omriashke/dynamico-core";
 import { Store } from "./store.js";
 import { compile } from "./compile.js";
@@ -43,6 +46,31 @@ interface UploadBody {
 
 interface UploadQuery {
   dryRun?: string | boolean;
+}
+
+function bookConfigPath(sourceDir: string): string | null {
+  for (const name of ["book.config.json", "storybook.config.json"]) {
+    const filePath = join(sourceDir, name);
+    if (existsSync(filePath)) return filePath;
+  }
+  return null;
+}
+
+function serveBookConfig(sourceDir: string, req: FastifyRequest, reply: FastifyReply) {
+  const filePath = bookConfigPath(sourceDir);
+  if (!filePath) {
+    reply.code(404);
+    return { error: "book.config.json not found" };
+  }
+  const body = readFileSync(filePath, "utf8");
+  const etag = `"${createHash("md5").update(body).digest("hex")}"`;
+  if (req.headers["if-none-match"] === etag) {
+    reply.code(304);
+    return;
+  }
+  reply.header("etag", etag);
+  reply.header("cache-control", "no-store");
+  return JSON.parse(body);
 }
 
 /** Build a Fastify app exposing the dynamico registry HTTP+WS API. */
@@ -217,6 +245,16 @@ export async function createServer(options: CreateServerOptions): Promise<{
 
   /** Current manifest (equivalent of `cat dynamico.config.json`). */
   app.get("/config", async () => sourceStore.snapshotConfig());
+
+  /** Storybook catalog config (legacy). */
+  app.get("/storybook-config", async (req, reply) => {
+    return serveBookConfig(options.sourceDir, req, reply);
+  });
+
+  /** Dynamico Book catalog config (`book.config.json`, falls back to `storybook.config.json`). */
+  app.get("/book-config", async (req, reply) => {
+    return serveBookConfig(options.sourceDir, req, reply);
+  });
 
   /**
    * Replace the entire manifest. Entries dropped from the body are removed

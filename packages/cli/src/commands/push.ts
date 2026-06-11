@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import type { Diagnostic } from "@omriashke/dynamico-core";
 import { upload, type ClientOptions } from "../client.js";
+import { validateBookConfigAtDir } from "../bookConfigValidate.js";
 import { flagBool, flagString, resolveCommon } from "../args.js";
 import { emit, fail, formatDiagnostic } from "../output.js";
 
@@ -235,6 +236,16 @@ async function pushDir(client: ClientOptions, dir: string, dryRun: boolean, json
       { error: `${MANIFEST_NAME} has no components` },
       [`error: ${manifestPath} has no components`],
     );
+  }
+
+  const bookIssues = await validateBookConfigAtDir(root, manifest.components);
+  if (bookIssues.length > 0) {
+    const lines = ["error: book.config.json preview props invalid:"];
+    for (const issue of bookIssues) {
+      lines.push(`  ${issue.component}:`);
+      for (const err of issue.errors) lines.push(`    - ${err}`);
+    }
+    fail(json, { error: "book.config.json validation failed", issues: bookIssues }, lines, 3);
   }
 
   const { status, data } = await upload(client, { components }, dryRun);

@@ -38,7 +38,7 @@ exercises the component:
 
 ```tsx
 import * as React from 'react';
-import { render, press, findByText } from '@omriashke/dynamico-validator';
+import { render, press, findByText } from '@omriashke/dynamico-test';
 import Counter from './Counter';
 
 export default async function test() {
@@ -48,7 +48,7 @@ export default async function test() {
 }
 ```
 
-`@omriashke/dynamico-validator` exports `render`, `press`, `longPress`,
+`@omriashke/dynamico-test` exports `render`, `press`, `longPress`,
 `changeText`, `findByText`, `findAllByType`, `queryByText`, `sleep`,
 `flush`, `expect`, and `setHostScope`. It auto-stubs unknown modules to a
 permissive Proxy (callable, iterable as `[]`, string-coercible), so most
@@ -233,7 +233,7 @@ export default function MyComponent({ label = "hi" }: { label?: string }) {
 
 ```tsx
 import React from "react";
-import { render } from "@omriashke/dynamico-validator";
+import { render } from "@omriashke/dynamico-test";
 import MyComponent from "./MyComponent";
 
 export default async function test() {

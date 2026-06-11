@@ -1,0 +1,22 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - packages/book/Dockerfile
+      - -t
+      - omriashkenazi/dynamico-book:0.1.2
+      - -t
+      - omriashkenazi/dynamico-book:latest
+      - .
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - omriashkenazi/dynamico-book:0.1.2
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - omriashkenazi/dynamico-book:latest
+images:
+  - omriashkenazi/dynamico-book:0.1.2
+  - omriashkenazi/dynamico-book:latest

@@ -21,6 +21,18 @@ export { loadModule } from "./loader.js";
 export { createRemoteSource, type RemoteSourceOptions } from "./sources/remote.js";
 export { validateProps, type PropsValidationResult } from "./propsSchema.js";
 export {
+  collectBookPreviewPropSets,
+  normalizeBookPreviewConfig,
+  resolveBookFixtures,
+  resolveBookPropValues,
+  validateBookPreviewsForComponent,
+  type BookPreviewBlock,
+  type BookPreviewConfig,
+  type BookPreviewEntry,
+  type BookPreviewPropSet,
+  type BookPreviewValidationResult,
+} from "./bookPreview.js";
+export {
   createRuntime,
   type RuntimeAPI,
   type CreateRuntimeOptions,

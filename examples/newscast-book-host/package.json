@@ -1,0 +1,28 @@
+{
+  "name": "newscast-book-host",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 6006",
+    "build": "vite build && node scripts/inject-base.mjs",
+    "preview": "vite preview --port 6006"
+  },
+  "dependencies": {
+    "@omriashke/dynamico-book": "workspace:*",
+    "@omriashke/dynamico-web": "workspace:*",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-native-svg": "^15.8.0",
+    "react-native-svg-web": "^1.0.9",
+    "react-native-web": "^0.20.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.13",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^5.1.1",
+    "react-native": "0.76.7",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.0"
+  }
+}

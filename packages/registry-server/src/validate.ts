@@ -1,8 +1,9 @@
 import { Worker } from "node:worker_threads";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import type { CompiledModule, Diagnostic } from "@omriashke/dynamico-core";
+import type { CompiledModule, Diagnostic, PropsSchema } from "@omriashke/dynamico-core";
 import { compile } from "./compile.js";
+import { validateComponentBookPreviews } from "./bookValidate.js";
 
 const TEST_TIMEOUT_MS_DEFAULT = 5000;
 
@@ -18,6 +19,11 @@ export interface ValidateInput {
    * Per-test timeout. Worker is terminated if it exceeds this. Default 5s.
    */
   timeoutMs?: number;
+  /**
+   * Registry source directory. When set, book.config.json previews referencing
+   * this component are validated against its propsSchema after the test passes.
+   */
+  sourceDir?: string;
 }
 
 export interface ValidateResult {
@@ -141,6 +147,31 @@ export async function validate(
     };
   }
 
+  if (input.sourceDir && result.propsSchema) {
+    const bookCheck = validateComponentBookPreviews(
+      input.name,
+      result.propsSchema,
+      input.sourceDir,
+    );
+    if (!bookCheck.ok) {
+      return {
+        ok: false,
+        durationMs: result.durationMs,
+        component: errorOnComponent(input.component, {
+          kind: "test",
+          message: bookCheck.message,
+          diagnostics: [
+            {
+              severity: "error",
+              message: bookCheck.message,
+              code: "BOOK_PREVIEW_FAIL",
+            } as Diagnostic,
+          ],
+        }),
+      };
+    }
+  }
+
   return { ok: true, durationMs: result.durationMs, component: input.component };
 }
 
@@ -170,6 +201,7 @@ interface WorkerInput {
 interface WorkerOutput {
   ok: boolean;
   durationMs: number;
+  propsSchema?: PropsSchema;
   error?: { phase: string; message: string; stack?: string };
 }
 

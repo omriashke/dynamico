@@ -1,5 +1,5 @@
 import * as React from "react";
-import { loadModule, type Scope } from "@omriashke/dynamico-core";
+import { loadModule, type Scope, type PropsSchema } from "@omriashke/dynamico-core";
 import * as RNMock from "./mocks/react-native.js";
 import * as SafeAreaMock from "./mocks/safe-area-context.js";
 
@@ -39,6 +39,8 @@ export interface RunTestInput {
 export interface RunTestResult {
   ok: boolean;
   durationMs: number;
+  /** Exported propsSchema from the component module, when present. */
+  propsSchema?: PropsSchema;
   /** When ok=false, the message thrown by the test (or load failure). */
   error?: {
     message: string;
@@ -341,6 +343,10 @@ export async function runTest(input: RunTestInput): Promise<RunTestResult> {
     };
   }
 
+  const propsSchema = (componentExports as Record<string, unknown>)?.propsSchema as
+    | PropsSchema
+    | undefined;
+
   // Phase 2: load the test module. The test imports the component via the
   // synthetic specifier '__component__' which we inject into scope.
   const testScope = makeAutoStubScope(componentExports, {
@@ -398,5 +404,5 @@ export async function runTest(input: RunTestInput): Promise<RunTestResult> {
     };
   }
 
-  return { ok: true, durationMs: performance.now() - start };
+  return { ok: true, durationMs: performance.now() - start, propsSchema };
 }

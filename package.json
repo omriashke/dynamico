@@ -9,6 +9,7 @@
     "dev:registry": "pnpm --filter @omriashke/dynamico-registry dev",
     "dev:cli": "pnpm --filter @omriashke/dynamico-cli dev",
     "dev:web": "pnpm --filter web-host dev",
+    "dev:book": "pnpm --filter @omriashke/dynamico-book build",
     "typecheck": "pnpm -r typecheck"
   },
   "devDependencies": {

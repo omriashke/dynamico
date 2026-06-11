@@ -1,0 +1,22 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - packages/registry-server/Dockerfile
+      - -t
+      - omriashkenazi/dynamico-registry:0.1.2
+      - -t
+      - omriashkenazi/dynamico-registry:latest
+      - .
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - omriashkenazi/dynamico-registry:0.1.2
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - omriashkenazi/dynamico-registry:latest
+images:
+  - omriashkenazi/dynamico-registry:0.1.2
+  - omriashkenazi/dynamico-registry:latest
