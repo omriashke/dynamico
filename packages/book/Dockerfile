@@ -10,6 +10,10 @@ ARG NEWSCAST_REF=versions/0.0.4
 
 FROM node:${NODE_VERSION} AS builder
 
+ARG PNPM_VERSION=10.30.3
+ARG NEWSCAST_REPO=https://github.com/omriashke/newscast.git
+ARG NEWSCAST_REF
+
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git ca-certificates \
  && rm -rf /var/lib/apt/lists/* \
