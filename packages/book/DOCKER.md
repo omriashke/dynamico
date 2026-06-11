@@ -43,10 +43,22 @@ Runtime settings are environment variables, exposed to the browser via
 
 ## Build & publish
 
+Multi-arch (`linux/amd64` + `linux/arm64`) via Cloud Build:
+
 ```bash
 cd dynamico
-docker build -f packages/book/Dockerfile -t omriashkenazi/dynamico-book:dev .
 gcloud builds submit --config packages/book/cloudbuild.yaml .
+```
+
+Local multi-arch push (requires buildx + QEMU):
+
+```bash
+docker buildx create --name dynamico-builder --use
+docker buildx build --platform linux/amd64,linux/arm64 \
+  -f packages/book/Dockerfile \
+  -t omriashkenazi/dynamico-book:0.1.2 \
+  -t omriashkenazi/dynamico-book:latest \
+  --push .
 ```
 
 ## License

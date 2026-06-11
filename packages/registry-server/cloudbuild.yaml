@@ -1,22 +1,16 @@
 steps:
   - name: gcr.io/cloud-builders/docker
+    entrypoint: bash
     args:
-      - build
-      - -f
-      - packages/registry-server/Dockerfile
-      - -t
-      - omriashkenazi/dynamico-registry:0.1.2
-      - -t
-      - omriashkenazi/dynamico-registry:latest
-      - .
-  - name: gcr.io/cloud-builders/docker
-    args:
-      - push
-      - omriashkenazi/dynamico-registry:0.1.2
-  - name: gcr.io/cloud-builders/docker
-    args:
-      - push
-      - omriashkenazi/dynamico-registry:latest
-images:
-  - omriashkenazi/dynamico-registry:0.1.2
-  - omriashkenazi/dynamico-registry:latest
+      - -c
+      - |
+        set -euo pipefail
+        docker buildx create --name dynamico-builder --use 2>/dev/null || docker buildx use dynamico-builder
+        docker buildx inspect --bootstrap
+        docker buildx build \
+          --platform linux/amd64,linux/arm64 \
+          --file packages/registry-server/Dockerfile \
+          --tag omriashkenazi/dynamico-registry:0.1.2 \
+          --tag omriashkenazi/dynamico-registry:latest \
+          --push \
+          .
