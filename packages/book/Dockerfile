@@ -1,26 +1,20 @@
 # syntax=docker/dockerfile:1.7
 #
-# Newscast Dynamico Book — static host with @newscast/utils-app-ui scope.
-# Clones the newscast monorepo at build time for app-ui sources only.
+# Generic Dynamico Book image — no consumer-repo checkout required.
+#
+#   docker build -f packages/book/Dockerfile -t omriashkenazi/dynamico-book:0.1.2 .
 
 ARG NODE_VERSION=23-slim
 ARG PNPM_VERSION=10.30.3
-ARG NEWSCAST_REPO=https://github.com/omriashke/newscast.git
-ARG NEWSCAST_REF=versions/0.0.4
 
 FROM node:${NODE_VERSION} AS builder
 
 ARG PNPM_VERSION=10.30.3
-ARG NEWSCAST_REPO=https://github.com/omriashke/newscast.git
-ARG NEWSCAST_REF
 
 RUN apt-get update \
- && apt-get install -y --no-install-recommends git ca-certificates \
+ && apt-get install -y --no-install-recommends ca-certificates \
  && rm -rf /var/lib/apt/lists/* \
  && npm install -g pnpm@${PNPM_VERSION}
-
-WORKDIR /newscast
-RUN git clone --depth 1 --branch ${NEWSCAST_REF} ${NEWSCAST_REPO} .
 
 WORKDIR /dynamico
 
@@ -28,26 +22,25 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc tsconfig.base.json .
 COPY packages/book/package.json packages/book/
 COPY packages/core/package.json packages/core/
 COPY packages/web/package.json packages/web/
-COPY examples/newscast-book-host/package.json examples/newscast-book-host/
+COPY examples/book-host/package.json examples/book-host/
 
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile \
-      --filter newscast-book-host... \
+      --filter book-host... \
       --filter @omriashke/dynamico-book...
 
 COPY packages/book packages/book
 COPY packages/core packages/core
 COPY packages/web packages/web
-COPY examples/newscast-book-host examples/newscast-book-host
+COPY examples/book-host examples/book-host
 
 RUN pnpm --filter @omriashke/dynamico-core build \
  && pnpm --filter @omriashke/dynamico-web build \
  && pnpm --filter @omriashke/dynamico-book build
 
-WORKDIR /dynamico/examples/newscast-book-host
+WORKDIR /dynamico/examples/book-host
 
-ENV DYNAMICO_BOOK_BASE=/book/ \
-    NEWSCAST_ROOT=/newscast
+ENV DYNAMICO_BOOK_BASE=/book/
 
 RUN pnpm build
 
@@ -57,7 +50,7 @@ WORKDIR /app
 
 RUN npm install -g @omriashke/dynamico-book@0.1.2
 
-COPY --from=builder /dynamico/examples/newscast-book-host/dist ./dist
+COPY --from=builder /dynamico/examples/book-host/dist ./dist
 
 ENV NODE_ENV=production \
     PORT=6006 \

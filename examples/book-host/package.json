@@ -1,5 +1,5 @@
 {
-  "name": "newscast-book-host",
+  "name": "book-host",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,6 +11,7 @@
   "dependencies": {
     "@omriashke/dynamico-book": "workspace:*",
     "@omriashke/dynamico-web": "workspace:*",
+    "prop-types": "^15.8.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-native-svg": "^15.8.0",

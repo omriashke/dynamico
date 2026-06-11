@@ -6,8 +6,6 @@ import { fileURLToPath } from 'url';
 
 const require = createRequire(import.meta.url);
 const appDir = path.dirname(fileURLToPath(import.meta.url));
-const newscastRoot = process.env.NEWSCAST_ROOT ?? path.resolve(appDir, '../../../newscast');
-const appUiSrc = path.join(newscastRoot, 'packages/utilities/app-ui/src/index.ts');
 const rnwPath = path.dirname(require.resolve('react-native-web/package.json'));
 const rnSvgWebPath = require.resolve('react-native-svg-web');
 
@@ -28,7 +26,6 @@ export default defineConfig({
   resolve: {
     dedupe: ['react', 'react-dom', 'react-native', 'react-native-web'],
     alias: [
-      { find: '@newscast/utils-app-ui', replacement: appUiSrc },
       { find: 'react-native', replacement: rnwPath },
       { find: 'react-native-svg', replacement: rnSvgWebPath },
       {
@@ -39,7 +36,7 @@ export default defineConfig({
     extensions: ['.web.tsx', '.web.ts', '.web.js', '.tsx', '.ts', '.js'],
   },
   optimizeDeps: {
-    exclude: ['@newscast/utils-app-ui', '@omriashke/dynamico-book', 'expo-secure-store'],
-    include: ['react-native-web', 'react-native-svg-web', '@omriashke/dynamico-web'],
+    exclude: ['@omriashke/dynamico-book', 'expo-secure-store'],
+    include: ['react-native-web', 'react-native-svg-web', '@omriashke/dynamico-web', 'prop-types'],
   },
 });

@@ -17,8 +17,8 @@
 
 # Examples are not needed by the registry server image.
 examples
-!examples/newscast-book-host
-!examples/newscast-book-host/**
+!examples/book-host
+!examples/book-host/**
 
 # Other workspace packages we don't need for the server image. The Dockerfile
 # explicitly copies what it wants from packages/core and packages/registry-server.
