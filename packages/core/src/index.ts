@@ -39,3 +39,8 @@ export {
   type DynamicoProviderProps,
   type DynamicComponentProps,
 } from "./react/createRuntime.js";
+export {
+  createPackageScope,
+  createPackageScopeFromNames,
+  type PackageScopeOptions,
+} from "./packageScope.js";

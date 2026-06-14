@@ -51,12 +51,13 @@
     "@babel/preset-env": "^7.25.0",
     "@babel/preset-react": "^7.24.0",
     "@babel/preset-typescript": "^7.24.0",
-    "@omriashke/dynamico-core": "workspace:*",
-    "@omriashke/dynamico-validator": "workspace:*",
     "@fastify/cors": "^11.2.0",
     "@fastify/websocket": "^11.0.1",
+    "@omriashke/dynamico-core": "workspace:*",
+    "@omriashke/dynamico-validator": "workspace:*",
     "chokidar": "^4.0.3",
     "fastify": "^5.0.0",
+    "libphonenumber-js": "^1.13.6",
     "typescript": "^5.6.3"
   },
   "devDependencies": {

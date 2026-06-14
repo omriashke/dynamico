@@ -9,7 +9,7 @@ export const useDynamico = runtime.useDynamico;
 export const useScope = runtime.useScope;
 
 export { defaultScope };
-export { createRemoteSource } from "@omriashke/dynamico-core";
+export { createRemoteSource, createPackageScope, createPackageScopeFromNames } from "@omriashke/dynamico-core";
 export type {
   Source,
   CompiledModule,

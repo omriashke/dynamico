@@ -1,6 +1,7 @@
 import { parentPort, workerData } from "node:worker_threads";
 import { runTest } from "@omriashke/dynamico-validator";
 import type { PropsSchema } from "@omriashke/dynamico-core";
+import { validationHostScope } from "./validationHostScope.js";
 
 interface WorkerInput {
   name: string;
@@ -25,6 +26,7 @@ async function main() {
     testCode: data.testCode,
     timeoutMs: data.timeoutMs,
     allowedScope: data.allowedScope,
+    hostScope: validationHostScope(data.allowedScope),
   });
   const out: WorkerOutput = {
     ok: result.ok,
