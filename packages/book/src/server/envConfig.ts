@@ -2,7 +2,6 @@
 
 export interface BookRuntimeConfig {
   registryUrl?: string;
-  auth?: { token?: string; apiKey?: string };
   pollMs?: number;
   basePath?: string;
 }
@@ -14,14 +13,6 @@ export function runtimeConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Book
 
   const registryUrl = env.DYNAMICO_REGISTRY_URL?.trim();
   if (registryUrl) config.registryUrl = registryUrl.replace(/\/$/, '');
-
-  const token = env.DYNAMICO_TOKEN?.trim();
-  const apiKey = (env.DYNAMICO_API_KEY ?? env.NEWSCAST_API_KEY)?.trim();
-  if (token || apiKey) {
-    config.auth = {};
-    if (token) config.auth.token = token;
-    if (apiKey) config.auth.apiKey = apiKey;
-  }
 
   const pollMs = env.DYNAMICO_BOOK_POLL_MS?.trim();
   if (pollMs && !Number.isNaN(Number(pollMs))) config.pollMs = Number(pollMs);

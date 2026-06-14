@@ -190,6 +190,18 @@ export class FilesystemSourceStore {
     return await this.awaitNextCompile(name);
   }
 
+  /** Persist a book catalog JSON file alongside component sources. */
+  async writeBookConfig(filename: string, source: string): Promise<void> {
+    if (!isBookConfigPath(filename)) {
+      throw new Error(`unsupported book config filename: ${filename}`);
+    }
+    JSON.parse(source);
+    const abs = join(this.dir, filename);
+    await writeFile(abs, source, "utf8");
+    this.log(`stored ${filename}`);
+    await this.revalidateAll();
+  }
+
   /** Delete the source file (and any companion test file) plus the manifest entry. */
   async remove(name: string): Promise<boolean> {
     const entry = this.manifest.get(name);

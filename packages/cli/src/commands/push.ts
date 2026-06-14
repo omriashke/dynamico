@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import type { Diagnostic } from "@omriashke/dynamico-core";
 import { upload, type ClientOptions } from "../client.js";
-import { validateBookConfigAtDir } from "../bookConfigValidate.js";
+import { validateBookConfigAtDir, readBookConfigFile } from "../bookConfigValidate.js";
 import { flagBool, flagString, resolveCommon } from "../args.js";
 import { emit, fail, formatDiagnostic } from "../output.js";
 
@@ -248,7 +248,18 @@ async function pushDir(client: ClientOptions, dir: string, dryRun: boolean, json
     fail(json, { error: "book.config.json validation failed", issues: bookIssues }, lines, 3);
   }
 
-  const { status, data } = await upload(client, { components }, dryRun);
+  const bookConfig = await readBookConfigFile(root);
+
+  const { status, data } = await upload(
+    client,
+    {
+      components,
+      ...(bookConfig
+        ? { bookConfig: { filename: bookConfig.filename, source: bookConfig.source } }
+        : {}),
+    },
+    dryRun,
+  );
 
   if (status >= 500 || (status >= 400 && status !== 422)) {
     fail(json, { status, data }, [`error: registry returned ${status}`], 2);
@@ -286,6 +297,9 @@ async function pushDir(client: ClientOptions, dir: string, dryRun: boolean, json
     lines.push(`! ${missingTests.length} component(s) have no co-located test file:`);
     for (const n of missingTests) lines.push(`    - ${n} (expected ${n}.test.tsx)`);
     lines.push("  the registry will reject these unless DYNAMICO_TEST_SKIP=1 is set on the server.");
+  }
+  if (data.bookConfig?.ok) {
+    lines.push(`> ${data.bookConfig.filename}  ${dryRun ? "(dry-run) ok" : "ok"}`);
   }
   lines.push(`\n${results.length - failed}/${results.length} succeeded${dryRun ? " (dry-run)" : ""}`);
 

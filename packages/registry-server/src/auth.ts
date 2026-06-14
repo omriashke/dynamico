@@ -40,6 +40,12 @@ export async function registerAuth(
     // config replace, metadata patch) require auth.
     if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") return;
 
+    // Host scope reporting is metadata (bare specifier names the app exposes).
+    // Browsers must never carry the registry token; book/mobile hosts POST this
+    // on mount. Actual pushes still require Bearer auth below.
+    const path = req.routeOptions?.url ?? req.url.split("?")[0];
+    if (req.method === "POST" && path === "/scope") return;
+
     if (options.allowIps?.length && ipMatches(req.ip, options.allowIps)) return;
 
     const header = req.headers["authorization"];

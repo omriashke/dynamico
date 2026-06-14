@@ -32,13 +32,25 @@ export interface UploadResponse {
   error?: { kind: string; message: string; diagnostics?: Diagnostic[] };
   /** Bulk shape. */
   results?: CompiledModule[];
+  /** Set when a book.config.json (or storybook.config.json) was stored. */
+  bookConfig?: { filename: string; ok: boolean };
+}
+
+export type UploadBody =
+  | { name: string; source: string; description?: string; test?: string; bookConfig?: BookConfigPayload }
+  | {
+      components: Array<{ name: string; source: string; description?: string; test?: string }>;
+      bookConfig?: BookConfigPayload;
+    };
+
+export interface BookConfigPayload {
+  filename?: string;
+  source: string;
 }
 
 export async function upload(
   opts: ClientOptions,
-  body:
-    | { name: string; source: string; description?: string; test?: string }
-    | { components: Array<{ name: string; source: string; description?: string; test?: string }> },
+  body: UploadBody,
   dryRun: boolean,
 ): Promise<{ status: number; data: UploadResponse }> {
   const url = `${opts.registry.replace(/\/$/, "")}/upload${dryRun ? "?dryRun=true" : ""}`;

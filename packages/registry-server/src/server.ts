@@ -42,10 +42,24 @@ interface UploadBody {
   test?: string;
   /** Bulk variant: { components: [{name, source, test, description?}, ...] } */
   components?: Array<{ name: string; source: string; test?: string; description?: string }>;
+  /** Optional Dynamico Book catalog (`book.config.json` or `storybook.config.json`). */
+  bookConfig?: { filename?: string; source: string };
 }
 
 interface UploadQuery {
   dryRun?: string | boolean;
+}
+
+async function persistBookConfig(
+  sourceStore: FilesystemSourceStore,
+  bookConfig: UploadBody["bookConfig"],
+  dryRun: boolean,
+): Promise<{ filename: string; ok: true } | undefined> {
+  if (!bookConfig || typeof bookConfig.source !== "string") return undefined;
+  const filename = bookConfig.filename ?? "book.config.json";
+  if (dryRun) return { filename, ok: true };
+  await sourceStore.writeBookConfig(filename, bookConfig.source);
+  return { filename, ok: true };
 }
 
 function bookConfigPath(sourceDir: string): string | null {
@@ -322,8 +336,21 @@ export async function createServer(options: CreateServerOptions): Promise<{
           }),
         );
         const anyError = results.some((r) => r.error);
-        if (anyError) reply.code(422);
-        return { dryRun, results };
+        if (anyError) {
+          reply.code(422);
+          return { dryRun, results };
+        }
+        try {
+          const bookConfig = await persistBookConfig(sourceStore, body.bookConfig, dryRun);
+          return { dryRun, results, ...(bookConfig ? { bookConfig } : {}) };
+        } catch (err) {
+          reply.code(400);
+          return {
+            dryRun,
+            results,
+            error: err instanceof Error ? err.message : String(err),
+          };
+        }
       }
 
       const { name, source, test, description } = body;
@@ -342,8 +369,12 @@ export async function createServer(options: CreateServerOptions): Promise<{
 
       try {
         const compiled = await sourceStore.write(name, source, description, test);
-        if (compiled.error) reply.code(422);
-        return { dryRun, ...compiled };
+        if (compiled.error) {
+          reply.code(422);
+          return { dryRun, ...compiled };
+        }
+        const bookConfig = await persistBookConfig(sourceStore, body.bookConfig, dryRun);
+        return { dryRun, ...compiled, ...(bookConfig ? { bookConfig } : {}) };
       } catch (err) {
         reply.code(400);
         return { error: err instanceof Error ? err.message : String(err) };

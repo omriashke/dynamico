@@ -9,6 +9,13 @@ import {
 
 const BOOK_CONFIG_NAMES = ["book.config.json", "storybook.config.json"] as const;
 
+export type BookConfigFilename = (typeof BOOK_CONFIG_NAMES)[number];
+
+export interface BookConfigFile {
+  filename: BookConfigFilename;
+  source: string;
+}
+
 export function extractPropsSchema(source: string): PropsSchema | undefined {
   const marker = "export const propsSchema";
   const idx = source.indexOf(marker);
@@ -48,6 +55,18 @@ async function readBookConfig(dir: string): Promise<BookPreviewConfig | undefine
     const filePath = join(dir, name);
     if (!existsSync(filePath)) continue;
     return JSON.parse(await readFile(filePath, "utf8")) as BookPreviewConfig;
+  }
+  return undefined;
+}
+
+/** Raw book catalog file to ship with `dynamico push --dir`. */
+export async function readBookConfigFile(dir: string): Promise<BookConfigFile | undefined> {
+  for (const filename of BOOK_CONFIG_NAMES) {
+    const filePath = join(dir, filename);
+    if (!existsSync(filePath)) continue;
+    const source = await readFile(filePath, "utf8");
+    JSON.parse(source);
+    return { filename, source };
   }
   return undefined;
 }
