@@ -44,3 +44,8 @@ export {
   createPackageScopeFromNames,
   type PackageScopeOptions,
 } from "./packageScope.js";
+export {
+  createRegistryModuleSubscription,
+  type RegistryModuleSubscription,
+  type ColorLike,
+} from "./registryModule.js";

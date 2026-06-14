@@ -13,14 +13,22 @@ export function validationHostScope(allowedScope?: readonly string[]): Scope {
     scope["libphonenumber-js"] = libphonenumber;
   }
   if (allowedScope.includes("@newscast/utils-app-ui")) {
+    const palette = {
+      white: "#FFFFFF",
+      black: "#000000",
+      primary: "#F53071",
+      secondary: "#FFF5F5",
+      grey: "rgba(0,0,0,0.25)",
+    };
     scope["@newscast/utils-app-ui"] = {
-      Colors: {
-        white: "#FFFFFF",
-        black: "#000000",
-        primary: "#F53071",
-        secondary: "#FFF5F5",
-        grey: "rgba(0,0,0,0.25)",
-      },
+      Colors: palette,
+      useColors: () => palette,
+      usePressScale: () => ({
+        scale: { __animatedValue: true },
+        onPressIn: () => undefined,
+        onPressOut: () => undefined,
+      }),
+      USE_NATIVE_DRIVER: false,
     };
   }
   return scope;

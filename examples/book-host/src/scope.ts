@@ -6,10 +6,13 @@ import * as DynamicoWeb from '@omriashke/dynamico-web';
 import {
   createRemoteSource,
   createPackageScope,
+  createRegistryModuleSubscription,
+  createUseRegistryModule,
   type Scope,
   type Source,
 } from '@omriashke/dynamico-web';
 import { stubPackage, stubProvider } from './stubScope.js';
+import { usePressScale, USE_NATIVE_DRIVER } from './animation.js';
 
 /** Newscast UI primitives served from the registry (matches dynamico/expo/ui/registryComponents.ts). */
 export const NEWSCAST_UI_COMPONENTS = [
@@ -36,14 +39,15 @@ export const NEWSCAST_UI_COMPONENTS = [
   'SwipeableCard',
 ] as const;
 
+const DEFAULT_COLORS = {
+  white: '#FFFFFF',
+  black: '#000000',
+  primary: '#F53071',
+  secondary: '#FFF5F5',
+  grey: 'rgba(0,0,0,0.25)',
+};
+
 const UI_STATIC_VALUES = {
-  Colors: {
-    white: '#FFFFFF',
-    black: '#000000',
-    primary: '#F53071',
-    secondary: '#FFF5F5',
-    grey: 'rgba(0,0,0,0.25)',
-  },
   ThemeProvider: stubProvider,
   useTheme: () => ({
     theme: 'light' as const,
@@ -59,9 +63,18 @@ export function buildBookScope(source: Source): Scope {
   const scopeRef: { current: Record<string, unknown> } = { current: {} };
   const getScope = () => scopeRef.current;
 
+  const colorsSub = createRegistryModuleSubscription(source, getScope, 'Colors', DEFAULT_COLORS);
+  const useColors = createUseRegistryModule(colorsSub);
+
   const uiPkg = createPackageScope(source, getScope, {
     components: NEWSCAST_UI_COMPONENTS,
-    values: UI_STATIC_VALUES,
+    values: {
+      ...UI_STATIC_VALUES,
+      Colors: colorsSub.proxy,
+      useColors,
+      usePressScale,
+      USE_NATIVE_DRIVER,
+    },
   });
 
   const scope: Scope = {

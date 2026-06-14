@@ -12,6 +12,9 @@ const rnSvgWebPath = require.resolve('react-native-svg-web');
 export default defineConfig({
   plugins: [react()],
   base: process.env.DYNAMICO_BOOK_BASE ?? '/',
+  define: {
+    global: 'globalThis',
+  },
   server: {
     port: 6006,
     proxy: {

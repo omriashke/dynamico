@@ -1,3 +1,6 @@
+/** Polyfill for react-native-web Animated JS fallback (Book runs in browser, not native). */
+(globalThis as typeof globalThis & { global?: typeof globalThis }).global ??= globalThis;
+
 import { StrictMode, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 import { DynamicoBook, loadRuntimeConfig } from '@omriashke/dynamico-book';
