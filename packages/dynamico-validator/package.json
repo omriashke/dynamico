@@ -1,6 +1,6 @@
 {
   "name": "@omriashke/dynamico-validator",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Server-side validator for dynamico components. Provides render(), press(), findByText() with auto-stubbed react-native + host scope so the registry can execute each component's co-located *.test.tsx in a worker thread and reject pushes that throw, miss a scope binding, or render incorrectly.",
   "license": "Apache-2.0",
   "type": "module",
@@ -17,14 +17,22 @@
       "import": "./dist/mocks/react-native.js"
     }
   },
-  "files": ["dist", "src"],
+  "files": [
+    "dist",
+    "src"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/omriaskenazi/dynamico.git",
     "directory": "packages/dynamico-validator"
   },
   "homepage": "https://github.com/omriaskenazi/dynamico#readme",
-  "keywords": ["dynamico", "validator", "react-native", "push-gate"],
+  "keywords": [
+    "dynamico",
+    "validator",
+    "react-native",
+    "push-gate"
+  ],
   "publishConfig": {
     "access": "public"
   },

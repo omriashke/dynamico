@@ -1,6 +1,6 @@
 {
   "name": "@omriashke/dynamico-book",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Dynamico Book — minimal live component catalog driven entirely by registry book.config.json",
   "license": "Apache-2.0",
   "type": "module",
@@ -17,7 +17,10 @@
     },
     "./styles.css": "./src/styles/book.css"
   },
-  "files": ["dist", "src/styles"],
+  "files": [
+    "dist",
+    "src/styles"
+  ],
   "bin": {
     "dynamico-book": "./dist/server/bin.js"
   },

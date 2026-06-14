@@ -1,6 +1,6 @@
 {
   "name": "@omriashke/dynamico-native",
-  "version": "0.1.1",
+  "version": "0.1.3",
   "description": "Dynamico runtime for React Native / Expo: Provider, DynamicComponent, and the native default scope.",
   "license": "Apache-2.0",
   "type": "module",
@@ -13,14 +13,24 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist", "src"],
+  "files": [
+    "dist",
+    "src"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/omriaskenazi/dynamico.git",
     "directory": "packages/native"
   },
   "homepage": "https://github.com/omriaskenazi/dynamico#readme",
-  "keywords": ["react-native", "expo", "runtime", "hot-swap", "dynamic-components", "dynamico"],
+  "keywords": [
+    "react-native",
+    "expo",
+    "runtime",
+    "hot-swap",
+    "dynamic-components",
+    "dynamico"
+  ],
   "publishConfig": {
     "access": "public"
   },

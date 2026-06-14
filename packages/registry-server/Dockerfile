@@ -47,10 +47,6 @@ RUN pnpm --filter @omriashke/dynamico-core build \
  && pnpm --filter @omriashke/dynamico-registry build
 
 # Produce a self-contained, prod-only deployment for the registry server.
-# `pnpm deploy --legacy` resolves workspace deps (including
-# @omriashke/dynamico-core) and writes everything into /out as a normal
-# node_modules tree. The `--legacy` flag is required on pnpm >=10 unless
-# you opt every workspace package into injected dependencies.
 RUN pnpm deploy --legacy --filter=@omriashke/dynamico-registry --prod /out
 
 # ---- Stage 2: runner ----------------------------------------------------------

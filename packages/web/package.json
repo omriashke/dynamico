@@ -1,6 +1,6 @@
 {
   "name": "@omriashke/dynamico-web",
-  "version": "0.1.1",
+  "version": "0.1.3",
   "description": "Dynamico runtime for React DOM: Provider, DynamicComponent, and the web default scope.",
   "license": "Apache-2.0",
   "type": "module",
@@ -13,14 +13,24 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist", "src"],
+  "files": [
+    "dist",
+    "src"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/omriaskenazi/dynamico.git",
     "directory": "packages/web"
   },
   "homepage": "https://github.com/omriaskenazi/dynamico#readme",
-  "keywords": ["react", "runtime", "hot-swap", "dynamic-components", "dynamico", "web"],
+  "keywords": [
+    "react",
+    "runtime",
+    "hot-swap",
+    "dynamic-components",
+    "dynamico",
+    "web"
+  ],
   "publishConfig": {
     "access": "public"
   },
