@@ -10,7 +10,7 @@ steps:
         docker buildx build \
           --platform linux/amd64,linux/arm64 \
           --file packages/registry-server/Dockerfile \
-          --tag omriashkenazi/dynamico-registry:0.1.4 \
+          --tag omriashkenazi/dynamico-registry:0.1.5 \
           --tag omriashkenazi/dynamico-registry:latest \
           --push \
           .

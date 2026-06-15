@@ -1,4 +1,4 @@
-import TestRenderer from "react-test-renderer";
+import { act } from "./act.js";
 
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -9,7 +9,7 @@ export function sleep(ms: number): Promise<void> {
  * before the next assertion. Use after firing events that schedule work.
  */
 export async function flush(): Promise<void> {
-  await TestRenderer.act(async () => {
+  await act(async () => {
     await Promise.resolve();
   });
 }

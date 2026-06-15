@@ -1,5 +1,5 @@
-import TestRenderer from "react-test-renderer";
 import type { ReactTestInstance } from "react-test-renderer";
+import { act } from "./act.js";
 
 /**
  * Fire onPress on a node. The node may be a Pressable, Button, TouchableOpacity,
@@ -12,7 +12,7 @@ export function press(node: ReactTestInstance, eventArg: unknown = {}): void {
     const type = typeof node.type === "string" ? node.type : (node.type as { displayName?: string }).displayName ?? "<anonymous>";
     throw new Error(`press(): node <${type}> has no onPress handler`);
   }
-  TestRenderer.act(() => {
+  act(() => {
     onPress(eventArg);
   });
 }
@@ -22,7 +22,7 @@ export function longPress(node: ReactTestInstance, eventArg: unknown = {}): void
   if (typeof onLongPress !== "function") {
     throw new Error(`longPress(): node has no onLongPress handler`);
   }
-  TestRenderer.act(() => {
+  act(() => {
     onLongPress(eventArg);
   });
 }
@@ -32,7 +32,7 @@ export function changeText(node: ReactTestInstance, text: string): void {
   if (typeof onChangeText !== "function") {
     throw new Error(`changeText(): node has no onChangeText handler`);
   }
-  TestRenderer.act(() => {
+  act(() => {
     onChangeText(text);
   });
 }

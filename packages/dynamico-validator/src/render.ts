@@ -1,5 +1,6 @@
 import * as React from "react";
 import TestRenderer from "react-test-renderer";
+import { act } from "./act.js";
 import type { ReactTestInstance, ReactTestRenderer } from "react-test-renderer";
 import { interactSmoke } from "./interactSmoke.js";
 import { flush } from "./timing.js";
@@ -78,7 +79,7 @@ export async function render(
   let renderer!: ReactTestRenderer;
 
   captureReactRenderErrors(() => {
-    TestRenderer.act(() => {
+    act(() => {
       renderer = TestRenderer.create(element);
     });
   });
@@ -92,7 +93,7 @@ export async function render(
     renderer,
     async update(next: React.ReactElement) {
       captureReactRenderErrors(() => {
-        TestRenderer.act(() => {
+        act(() => {
           renderer.update(next);
         });
       });

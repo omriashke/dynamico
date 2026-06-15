@@ -1,5 +1,5 @@
-import TestRenderer from "react-test-renderer";
 import type { ReactTestInstance } from "react-test-renderer";
+import { act } from "./act.js";
 
 const MAX_INTERACTIONS = 64;
 
@@ -33,7 +33,7 @@ export function interactSmoke(root: ReactTestInstance): void {
     if (count >= MAX_INTERACTIONS) break;
     const props = node.props ?? {};
     try {
-      TestRenderer.act(() => {
+      act(() => {
         if (typeof props.onPress === "function") {
           props.onPress({});
           count++;
