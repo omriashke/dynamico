@@ -220,7 +220,12 @@ async function runInWorker(input: WorkerInput): Promise<WorkerOutput> {
     const workerPath = join(__dirname, "validateWorker.js");
     let worker: Worker;
     try {
-      worker = new Worker(workerPath, { workerData: input });
+      // react-test-renderer only mounts in development builds; the Docker image
+      // sets NODE_ENV=production globally but validation must still render.
+      worker = new Worker(workerPath, {
+        workerData: input,
+        env: { ...process.env, NODE_ENV: "development" },
+      });
     } catch (err) {
       settle({
         ok: false,
