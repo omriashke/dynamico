@@ -1,6 +1,11 @@
 export { createServer, type CreateServerOptions } from "./server.js";
 export { Store } from "./store.js";
-export { compile } from "./compile.js";
+export { compile, type CompileContext } from "./compile.js";
+export {
+  validateRelativeImports,
+  extractRelativeRequires,
+  resolveRelativeComponentName,
+} from "./relativeImports.js";
 export { typecheck } from "./typecheck.js";
 export { FilesystemSourceStore } from "./sourceStore.js";
 export { Manifest, type ManifestEntry, type ManifestFile } from "./manifest.js";

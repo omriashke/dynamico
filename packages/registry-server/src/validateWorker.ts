@@ -9,6 +9,7 @@ interface WorkerInput {
   testCode: string;
   timeoutMs: number;
   allowedScope?: readonly string[];
+  registeredComponents?: readonly string[];
 }
 
 interface WorkerOutput {
@@ -26,6 +27,7 @@ async function main() {
     testCode: data.testCode,
     timeoutMs: data.timeoutMs,
     allowedScope: data.allowedScope,
+    registeredComponents: data.registeredComponents,
     hostScope: validationHostScope(data.allowedScope),
   });
   const out: WorkerOutput = {

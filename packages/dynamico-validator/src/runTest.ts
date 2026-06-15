@@ -29,6 +29,12 @@ export interface RunTestInput {
    */
   allowedScope?: readonly string[];
   /**
+   * Registry component names for relative import resolution in tests.
+   * When set, a relative import whose basename is not listed fails at load
+   * with phase "relative" (mirrors post-bundle compile validation).
+   */
+  registeredComponents?: readonly string[];
+  /**
    * Maximum wall-clock time the test may take, in ms. Default 5000. The
    * registry's worker enforces this by terminating the worker on timeout;
    * this field exists so authors can opt INTO faster timeouts, not slower.
@@ -46,7 +52,7 @@ export interface RunTestResult {
     message: string;
     stack?: string;
     /** Which phase failed: 'load' (require), 'test' (test threw), or 'no-default-export'. */
-    phase: "load" | "scope" | "test" | "no-default-export" | "no-test-export";
+    phase: "load" | "scope" | "relative" | "test" | "no-default-export" | "no-test-export";
   };
 }
 
@@ -296,6 +302,18 @@ function makeStubModule(name: string): unknown {
   return stub;
 }
 
+function resolveRelativeComponentName(specifier: string): string | null {
+  if (!specifier.startsWith("./") && !specifier.startsWith("../") && !specifier.startsWith("/")) {
+    return null;
+  }
+  const base = specifier
+    .replace(/^\.+\//, "")
+    .replace(/\.[tj]sx?$/, "")
+    .split("/")
+    .pop();
+  return base || null;
+}
+
 export async function runTest(input: RunTestInput): Promise<RunTestResult> {
   const start = performance.now();
 
@@ -306,12 +324,15 @@ export async function runTest(input: RunTestInput): Promise<RunTestResult> {
       input.componentCode,
       makeAutoStubScope(undefined, input.hostScope ?? {}, input.allowedScope),
       (specifier) => {
-        // Components may relative-import sibling components (`./Foo`) or
-        // static assets (`../assets/loginImage.png`). The registry resolves
-        // sibling components against its store, but in tests we don't have
-        // the rest of the registry available, so we hand back a deep stub
-        // for both. The component's behavior with a missing sibling is then
-        // exactly the same as if the sibling rendered no UI.
+        const base = resolveRelativeComponentName(specifier);
+        if (base && input.registeredComponents?.length) {
+          const registered = new Set(input.registeredComponents);
+          if (!registered.has(base)) {
+            throw new Error(
+              `relative import '${specifier}' resolves to unregistered component '${base}'`,
+            );
+          }
+        }
         return makeStubModule(`relative:${specifier}`);
       },
     );
@@ -319,7 +340,11 @@ export async function runTest(input: RunTestInput): Promise<RunTestResult> {
     const msg = err instanceof Error ? err.message : String(err);
     // Surface scope-misses with a clearer phase so the registry log/CLI
     // output makes it obvious the component needs a host scope addition.
-    const phase = /is not in host scope/.test(msg) ? "scope" : "load";
+    const phase = /is not in host scope/.test(msg)
+      ? "scope"
+      : /unregistered component/.test(msg)
+        ? "relative"
+        : "load";
     return {
       ok: false,
       durationMs: performance.now() - start,

@@ -127,6 +127,19 @@ export class FilesystemSourceStore {
     return { rechecked };
   }
 
+  /**
+   * Flat registry component names currently in the manifest. Used by compile()
+   * to decide which relative imports stay external vs bundled.
+   */
+  registeredComponentNames(): ReadonlySet<string> {
+    return new Set(this.manifest.list().map((e) => e.name));
+  }
+
+  /** Manifest path for a component, or the default `${name}.tsx` at store root. */
+  resolvePathForName(name: string): string {
+    return this.manifest.get(name)?.path ?? `${name}.tsx`;
+  }
+
   /** Read raw source + manifest entry for an agent's `pull --source`. */
   async getSource(name: string): Promise<
     | { name: string; path: string; source: string; description: string; version: string }
@@ -380,7 +393,11 @@ export class FilesystemSourceStore {
     const abs = join(this.dir, relPath);
     try {
       const source = await readFile(abs, "utf8");
-      const compiled = await compile(name, source, extname(relPath));
+      const registered = this.registeredComponentNames();
+      const compiled = await compile(name, source, extname(relPath), {
+        absSourcePath: abs,
+        registeredComponents: registered,
+      });
 
       // Validation: every component MUST have a co-located test that passes
       // before its compiled output is exposed to clients. The operator can
@@ -405,6 +422,7 @@ export class FilesystemSourceStore {
           testSource,
           testExt: extname(testRel),
           sourceDir: this.dir,
+          registeredComponents: [...this.registeredComponentNames()],
         },
         { ...policy, ...(allowedScope ? { allowedScope } : {}) },
       );

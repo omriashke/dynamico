@@ -24,6 +24,8 @@ export interface ValidateInput {
    * this component are validated against its propsSchema after the test passes.
    */
   sourceDir?: string;
+  /** Flat registry component names (for relative-import validation in tests). */
+  registeredComponents?: readonly string[];
 }
 
 export interface ValidateResult {
@@ -57,6 +59,7 @@ export interface ValidatePolicy {
    * (permissive) until the first app boot.
    */
   allowedScope?: readonly string[];
+  registeredComponents?: readonly string[];
 }
 
 export function loadPolicyFromEnv(): ValidatePolicy {
@@ -107,7 +110,9 @@ export async function validate(
 
   // Compile the test file. Same Babel pipeline as the component. If the test
   // file itself doesn't compile, treat that as a validation failure.
-  const compiledTest = await compile(`${input.name}.test`, input.testSource, input.testExt ?? ".tsx");
+  const compiledTest = await compile(`${input.name}.test`, input.testSource, input.testExt ?? ".tsx", {
+    skipRelativeImportGate: true,
+  });
   if (compiledTest.error || !compiledTest.code) {
     return {
       ok: false,
@@ -126,6 +131,7 @@ export async function validate(
     testCode: compiledTest.code!,
     timeoutMs: input.timeoutMs ?? TEST_TIMEOUT_MS_DEFAULT,
     allowedScope: policy.allowedScope,
+    registeredComponents: input.registeredComponents ?? policy.registeredComponents,
   });
 
   if (!result.ok) {
@@ -197,6 +203,7 @@ interface WorkerInput {
   testCode: string;
   timeoutMs: number;
   allowedScope?: readonly string[];
+  registeredComponents?: readonly string[];
 }
 interface WorkerOutput {
   ok: boolean;

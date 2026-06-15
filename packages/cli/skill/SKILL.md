@@ -209,6 +209,7 @@ Omission = deletion.
 - **Must ship with a co-located `.test.tsx`** (see "Test gate" above). Missing test → push rejected unless `DYNAMICO_TEST_SKIP=1` on the server.
 - **Only import the host scope.** Web: `"react"`. Expo: `"react"` and `"react-native"`. Plus anything the host registered via `<DynamicoProvider scope={...}>`. Imports outside the reported scope are rejected at push time with a `'foo' is not in host scope` error.
 - **Relative imports resolve to other dynamic components.** `import Other from "./Other"` expects `Other` to exist in the registry; it's fetched lazily and hot-swapped independently.
+- **Local helpers are auto-bundled.** `./themeMap.ts` or `../utils.ts` files that are **not** registered component names are inlined at `dynamico push` via esbuild. Do **not** import utility functions from `../foo` unless `foo` is a pushed component or the helper is on host scope (`@newscast/utils-app-ui`). A push whose compiled output still contains `require("../unregistered")` is **rejected** with `RELATIVE_IMPORT`.
 - **Props must be JSON-serializable** (primitives, arrays, plain objects, **or** functions — when the schema marks them as `type: "function"`).
 - **Classic JSX runtime:** you must `import React from "react"` (or `import * as React`).
 - **Optional:** export `const propsSchema = { ... } as const` for runtime prop validation. Keys map to `{ type: "string" | "number" | "boolean" | "object" | "array" | "function" | "any", required?: boolean }`.

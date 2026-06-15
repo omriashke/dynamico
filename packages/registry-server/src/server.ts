@@ -3,7 +3,7 @@ import websocket from "@fastify/websocket";
 import cors from "@fastify/cors";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, extname } from "node:path";
 import type { CompiledModule } from "@omriashke/dynamico-core";
 import { Store } from "./store.js";
 import { compile } from "./compile.js";
@@ -326,7 +326,15 @@ export async function createServer(options: CreateServerOptions): Promise<{
                 error: { kind: "compile" as const, message: "expected { name, source }" },
               };
             }
-            if (dryRun) return await compile(name, source);
+            if (dryRun) {
+              const relPath = sourceStore.resolvePathForName(name);
+              const registered = new Set(sourceStore.registeredComponentNames());
+              registered.add(name);
+              return await compile(name, source, extname(relPath), {
+                absSourcePath: join(options.sourceDir, relPath),
+                registeredComponents: registered,
+              });
+            }
             try {
               return await sourceStore.write(name, source, description, test);
             } catch (err) {
@@ -362,7 +370,13 @@ export async function createServer(options: CreateServerOptions): Promise<{
       }
 
       if (dryRun) {
-        const compiled = await compile(name, source);
+        const relPath = sourceStore.resolvePathForName(name);
+        const registered = new Set(sourceStore.registeredComponentNames());
+        registered.add(name);
+        const compiled = await compile(name, source, extname(relPath), {
+          absSourcePath: join(options.sourceDir, relPath),
+          registeredComponents: registered,
+        });
         if (compiled.error) reply.code(422);
         return { dryRun, ...compiled };
       }

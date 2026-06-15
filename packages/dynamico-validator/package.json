@@ -1,6 +1,6 @@
 {
   "name": "@omriashke/dynamico-validator",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Server-side validator for dynamico components. Provides render(), press(), findByText() with auto-stubbed react-native + host scope so the registry can execute each component's co-located *.test.tsx in a worker thread and reject pushes that throw, miss a scope binding, or render incorrectly.",
   "license": "Apache-2.0",
   "type": "module",
