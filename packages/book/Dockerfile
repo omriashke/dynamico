@@ -7,8 +7,8 @@
 ARG NODE_VERSION=23-slim
 ARG PNPM_VERSION=10.30.3
 
-# ---- Build the Vite app -------------------------------------------------------
-FROM node:${NODE_VERSION} AS builder
+# ---- Build the Vite app (always on the builder's native arch — esbuild crashes under QEMU) ---
+FROM --platform=$BUILDPLATFORM node:${NODE_VERSION} AS builder
 
 ARG PNPM_VERSION=10.30.3
 
@@ -38,7 +38,8 @@ RUN pnpm --filter @omriashke/dynamico-core build \
  && pnpm --filter @omriashke/dynamico-book build
 
 WORKDIR /dynamico/examples/book-host
-ENV DYNAMICO_BOOK_BASE=/book/
+ENV DYNAMICO_BOOK_BASE=/book/ \
+    GOMAXPROCS=1
 RUN pnpm build
 
 # ---- Serve static assets ------------------------------------------------------

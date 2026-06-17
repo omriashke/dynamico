@@ -176,7 +176,6 @@ export class FilesystemSourceStore {
     name: string,
     source: string,
     description: string | undefined,
-    testSource?: string,
   ): Promise<CompiledModule> {
     validateName(name);
     const entry = this.manifest.get(name);
@@ -185,16 +184,6 @@ export class FilesystemSourceStore {
     const abs = join(this.dir, relPath);
     await mkdir(dirname(abs), { recursive: true });
     await writeFile(abs, source, "utf8");
-
-    // Mirror any provided test source to disk next to the component. We
-    // intentionally write the test file BEFORE awaiting compile so the
-    // watcher's compileAndStore() call sees both files together. If the
-    // caller didn't send a test, validate() will enforce the policy.
-    if (testSource !== undefined) {
-      const testRel = testPathFor(relPath);
-      const testAbs = join(this.dir, testRel);
-      await writeFile(testAbs, testSource, "utf8");
-    }
 
     await this.manifest.upsert(name, {
       path: relPath,
@@ -215,17 +204,13 @@ export class FilesystemSourceStore {
     await this.revalidateAll();
   }
 
-  /** Delete the source file (and any companion test file) plus the manifest entry. */
+  /** Delete the source file plus the manifest entry. */
   async remove(name: string): Promise<boolean> {
     const entry = this.manifest.get(name);
     if (!entry) return false;
     const abs = join(this.dir, entry.path);
     if (existsSync(abs)) {
       try { await unlink(abs); } catch { /* ignore */ }
-    }
-    const testAbs = join(this.dir, testPathFor(entry.path));
-    if (existsSync(testAbs)) {
-      try { await unlink(testAbs); } catch { /* ignore */ }
     }
     await this.manifest.remove(name);
     this.store.remove(name);
@@ -362,9 +347,7 @@ export class FilesystemSourceStore {
         if (!e.isFile()) continue;
         const ext = extname(e.name);
         if (!SOURCE_EXTS.includes(ext as SourceExt)) continue;
-        // Companion test files (Foo.test.tsx) are NOT registry components;
-        // they're consumed by the validator alongside Foo.tsx. The watcher
-        // still picks them up via path matching in handleFileChange.
+        // Legacy *.test.* files are not registry components — ignore them.
         if (isTestFilename(e.name)) continue;
         const name = basename(e.name, ext);
         if (out.has(name)) {
@@ -399,28 +382,12 @@ export class FilesystemSourceStore {
         registeredComponents: registered,
       });
 
-      // Validation: every component MUST have a co-located test that passes
-      // before its compiled output is exposed to clients. The operator can
-      // bypass via DYNAMICO_TEST_SKIP=1 (see validate.ts).
-      const testRel = testPathFor(relPath);
-      const testAbs = join(this.dir, testRel);
-      let testSource: string | undefined;
-      if (existsSync(testAbs)) {
-        try {
-          testSource = await readFile(testAbs, "utf8");
-        } catch (err) {
-          this.log(`failed to read test ${testRel}: ${(err as Error).message}`);
-        }
-      }
-
       const policy = loadPolicyFromEnv();
       const allowedScope = this.scopeCache?.getKeys();
       const validated = await validate(
         {
           name,
           component: compiled,
-          testSource,
-          testExt: extname(testRel),
           sourceDir: this.dir,
           registeredComponents: [...this.registeredComponentNames()],
         },
@@ -434,7 +401,7 @@ export class FilesystemSourceStore {
             (validated.durationMs !== undefined ? ` (${validated.durationMs.toFixed(0)}ms)` : ""),
         );
       } else if (validated.durationMs !== undefined) {
-        this.log(`accepted ${name} (test passed in ${validated.durationMs.toFixed(0)}ms)`);
+        this.log(`accepted ${name} (validated in ${validated.durationMs.toFixed(0)}ms)`);
       }
     } catch (err) {
       this.log(`failed to read/compile ${relPath}: ${(err as Error).message}`);
@@ -451,19 +418,7 @@ export class FilesystemSourceStore {
     const ext = extname(rel);
     if (!SOURCE_EXTS.includes(ext as SourceExt)) return;
 
-    // A test file change re-validates its paired component. The test itself
-    // is never registered as a component.
-    if (isTestFilename(basename(rel))) {
-      const componentRel = rel.replace(/\.test(\.(tsx|jsx|ts|js))$/, "$1");
-      const componentName = basename(componentRel, extname(componentRel));
-      const existing = this.manifest.get(componentName);
-      if (existing && existing.path === componentRel && existsSync(join(this.dir, componentRel))) {
-        await this.compileAndStore(componentName, componentRel);
-      } else {
-        this.log(`test file ${rel} has no paired component; ignoring`);
-      }
-      return;
-    }
+    if (isTestFilename(basename(rel))) return;
 
     const name = basename(rel, ext);
 
@@ -535,23 +490,10 @@ export class FilesystemSourceStore {
 }
 
 /**
- * `Foo.test.tsx` (and .test.jsx/.test.ts/.test.js) are companion test files,
- * not first-class registry entries. They are consumed by the validator
- * alongside `Foo.tsx` to gate pushes. This helper catches all four extensions
- * and any future variant ending in `.test.<ext>`.
+ * Legacy `*.test.*` files are not registry components — ignored during scans.
  */
 export function isTestFilename(filename: string): boolean {
   return /\.test\.(tsx|jsx|ts|js)$/.test(filename);
-}
-
-/**
- * Given a component's source-file path (relative to the registry root),
- * return the matching `.test.<ext>` path that the validator should look for.
- * E.g. 'screens/HomeScreen.tsx' -> 'screens/HomeScreen.test.tsx'.
- */
-export function testPathFor(relSourcePath: string): string {
-  const ext = extname(relSourcePath);
-  return relSourcePath.slice(0, -ext.length) + ".test" + ext;
 }
 
 function validateName(name: string): void {

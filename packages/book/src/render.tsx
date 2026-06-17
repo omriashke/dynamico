@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import type { DynamicError } from '@omriashke/dynamico-web';
 import { DynamicComponent } from '@omriashke/dynamico-web';
 import { resolveBookFixtures } from './fixtures.js';
@@ -171,24 +171,40 @@ export function entryCanvasStyle(entry: BookEntry | undefined): CSSProperties {
   };
 }
 
+/** Nest registry provider components around preview content (inner → outer). */
+export function wrapBookProviders(
+  content: ReactNode,
+  providers: readonly string[],
+): ReactNode {
+  return providers.reduce<ReactNode>(
+    (child, name) => (
+      <LiveComponent key={name} name={name} props={{ children: child }} />
+    ),
+    content,
+  );
+}
+
 export function BookEntryCanvas({
   entry,
   fixtures,
   registryUrl,
+  providers = [],
 }: {
   entry: BookEntry;
   fixtures: Record<string, JsonObject>;
   registryUrl: string;
+  providers?: readonly string[];
 }) {
   if (entry.kind === 'info') {
     return <InfoPanel registryUrl={registryUrl} />;
   }
   const blocks = entry.blocks ?? [];
-  return (
+  const body = (
     <>
       {blocks.map((block, index) => (
         <BlockView key={index} block={block} fixtures={fixtures} />
       ))}
     </>
   );
+  return wrapBookProviders(body, providers);
 }

@@ -34,14 +34,8 @@ interface UploadBody {
   name?: string;
   source?: string;
   description?: string;
-  /**
-   * Co-located test file source. Required (unless DYNAMICO_TEST_SKIP=1 on the
-   * server). The test must export default an async function; if it throws,
-   * the push is rejected.
-   */
-  test?: string;
-  /** Bulk variant: { components: [{name, source, test, description?}, ...] } */
-  components?: Array<{ name: string; source: string; test?: string; description?: string }>;
+  /** Bulk variant: { components: [{name, source, description?}, ...] } */
+  components?: Array<{ name: string; source: string; description?: string }>;
   /** Optional Dynamico Book catalog (`book.config.json` or `storybook.config.json`). */
   bookConfig?: { filename?: string; source: string };
 }
@@ -319,7 +313,7 @@ export async function createServer(options: CreateServerOptions): Promise<{
 
       if (Array.isArray(body.components)) {
         const results = await Promise.all(
-          body.components.map(async ({ name, source, test, description }) => {
+          body.components.map(async ({ name, source, description }) => {
             if (!name || typeof source !== "string") {
               return {
                 name: name ?? "<missing>",
@@ -336,7 +330,7 @@ export async function createServer(options: CreateServerOptions): Promise<{
               });
             }
             try {
-              return await sourceStore.write(name, source, description, test);
+              return await sourceStore.write(name, source, description);
             } catch (err) {
               const msg = err instanceof Error ? err.message : String(err);
               return { name, version: "", error: { kind: "compile" as const, message: msg } };
@@ -361,11 +355,11 @@ export async function createServer(options: CreateServerOptions): Promise<{
         }
       }
 
-      const { name, source, test, description } = body;
+      const { name, source, description } = body;
       if (!name || typeof source !== "string") {
         reply.code(400);
         return {
-          error: "expected JSON body { name: string, source: string, test?: string, description?: string } or { components: [...] }",
+          error: "expected JSON body { name: string, source: string, description?: string } or { components: [...] }",
         };
       }
 
@@ -382,7 +376,7 @@ export async function createServer(options: CreateServerOptions): Promise<{
       }
 
       try {
-        const compiled = await sourceStore.write(name, source, description, test);
+        const compiled = await sourceStore.write(name, source, description);
         if (compiled.error) {
           reply.code(422);
           return { dryRun, ...compiled };

@@ -7,7 +7,12 @@ export {
   sidebarSections,
   findEntry,
 } from './config.js';
-export { BookEntryCanvas, resolveFixtures, resolvePropsForLiveComponent } from './render.js';
+export {
+  BookEntryCanvas,
+  resolveFixtures,
+  resolvePropsForLiveComponent,
+  wrapBookProviders,
+} from './render.js';
 export { resolveBookFixtures } from './fixtures.js';
 export type {
   BookAuthOptions,

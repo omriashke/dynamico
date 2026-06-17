@@ -1,5 +1,4 @@
 import { readFile, readdir } from "node:fs/promises";
-import { existsSync } from "node:fs";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import type { Diagnostic } from "@omriashke/dynamico-core";
 import { upload, type ClientOptions } from "../client.js";
@@ -16,30 +15,9 @@ type SourceExt = (typeof SOURCE_EXTS)[number];
 
 const MANIFEST_NAME = "dynamico.config.json";
 
-/**
- * Companion test files (Foo.test.tsx) are uploaded alongside their component
- * and consumed by the registry's validator. They are NEVER treated as
- * standalone components: the registry rejects pushes whose name resolves
- * against a `.test.<ext>` file, and the CLI strips them out of disk-walk
- * results before listing "extras".
- */
+/** Legacy `*.test.*` files are ignored during disk walks — not registry components. */
 function isTestFilename(filename: string): boolean {
   return /\.test\.(tsx|jsx|ts|js)$/.test(filename);
-}
-
-function testPathFor(sourcePath: string): string {
-  const ext = extname(sourcePath);
-  return sourcePath.slice(0, -ext.length) + ".test" + ext;
-}
-
-async function readTestIfExists(sourceAbsPath: string): Promise<string | undefined> {
-  const testPath = testPathFor(sourceAbsPath);
-  if (!existsSync(testPath)) return undefined;
-  try {
-    return await readFile(testPath, "utf8");
-  } catch {
-    return undefined;
-  }
 }
 
 export interface PushArgs {
@@ -74,7 +52,6 @@ export async function push(args: PushArgs): Promise<void> {
   const useStdin = flagBool(args.flags, "stdin");
   const sourcePath = flagString(args.flags, "source");
   const description = flagString(args.flags, "description");
-  const testFlag = flagString(args.flags, "test");
 
   if (dir) {
     return pushDir(client, dir, dryRun, common.json);
@@ -82,11 +59,10 @@ export async function push(args: PushArgs): Promise<void> {
 
   const name = args.positional[0];
   if (!name) {
-    fail(common.json, { error: "missing <name>" }, ["error: missing <name>; usage: dynamico push <name> [--source <path> | --stdin] [--test <path>] [--description <text>] [--dry-run]"]);
+    fail(common.json, { error: "missing <name>" }, ["error: missing <name>; usage: dynamico push <name> [--source <path> | --stdin] [--description <text>] [--dry-run]"]);
   }
 
   let source: string;
-  let resolvedSourcePath: string | undefined;
   if (useStdin) {
     source = await readStdin();
   } else {
@@ -100,32 +76,14 @@ export async function push(args: PushArgs): Promise<void> {
     }
     try {
       source = await readFile(filePath, "utf8");
-      resolvedSourcePath = filePath;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       fail(common.json, { error: msg }, [`error: cannot read ${filePath}: ${msg}`]);
     }
   }
 
-  // Pick up the test file. Precedence:
-  //   1. --test <path>          (explicit)
-  //   2. --stdin: no test       (caller must use --test if they want one)
-  //   3. auto-discover: <source-without-ext>.test.<ext> next to the source
-  let testSource: string | undefined;
-  if (testFlag) {
-    try {
-      testSource = await readFile(resolve(testFlag), "utf8");
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      fail(common.json, { error: msg }, [`error: cannot read test file ${testFlag}: ${msg}`]);
-    }
-  } else if (resolvedSourcePath) {
-    testSource = await readTestIfExists(resolvedSourcePath);
-  }
-
-  const body: { name: string; source: string; description?: string; test?: string } = { name, source };
+  const body: { name: string; source: string; description?: string } = { name, source };
   if (description !== undefined) body.description = description;
-  if (testSource !== undefined) body.test = testSource;
   const { status, data } = await upload(client, body, dryRun);
   handleSingleResponse(name, status, data, common.json, dryRun);
 }
@@ -187,8 +145,7 @@ async function pushDir(client: ClientOptions, dir: string, dryRun: boolean, json
   const extras = [...onDisk].filter((n) => !manifestNames.has(n));
 
   const missingOnDisk: Array<{ name: string; path: string }> = [];
-  const missingTests: string[] = [];
-  const components: Array<{ name: string; source: string; description?: string; test?: string }> = [];
+  const components: Array<{ name: string; source: string; description?: string }> = [];
   for (const [name, entry] of Object.entries(manifest.components)) {
     if (!entry?.path || typeof entry.path !== "string") {
       fail(
@@ -207,13 +164,10 @@ async function pushDir(client: ClientOptions, dir: string, dryRun: boolean, json
     const abs = join(root, entry.path);
     try {
       const source = await readFile(abs, "utf8");
-      const test = await readTestIfExists(abs);
-      if (test === undefined) missingTests.push(name);
       components.push({
         name,
         source,
         ...(entry.description !== undefined ? { description: entry.description } : {}),
-        ...(test !== undefined ? { test } : {}),
       });
     } catch {
       missingOnDisk.push({ name, path: entry.path });
@@ -292,21 +246,15 @@ async function pushDir(client: ClientOptions, dir: string, dryRun: boolean, json
     for (const n of extras) lines.push(`    - ${n}`);
     lines.push(`  add them to ${MANIFEST_NAME} or remove them to silence this warning.`);
   }
-  if (missingTests.length > 0) {
-    lines.push("");
-    lines.push(`! ${missingTests.length} component(s) have no co-located test file:`);
-    for (const n of missingTests) lines.push(`    - ${n} (expected ${n}.test.tsx)`);
-    lines.push("  the registry will reject these unless DYNAMICO_TEST_SKIP=1 is set on the server.");
-  }
   if (data.bookConfig?.ok) {
     lines.push(`> ${data.bookConfig.filename}  ${dryRun ? "(dry-run) ok" : "ok"}`);
   }
   lines.push(`\n${results.length - failed}/${results.length} succeeded${dryRun ? " (dry-run)" : ""}`);
 
   if (failed > 0) {
-    fail(json, { dryRun, results, extras, missingTests }, lines, 3);
+    fail(json, { dryRun, results, extras }, lines, 3);
   }
-  emit(json, { dryRun, results, extras, missingTests }, lines);
+  emit(json, { dryRun, results, extras }, lines);
 }
 
 function handleSingleResponse(
@@ -355,9 +303,6 @@ async function collectNames(root: string): Promise<Set<string>> {
       }
       if (!e.isFile()) continue;
       if (e.name === MANIFEST_NAME) continue;
-      // Companion test files (Foo.test.tsx) are uploaded with the
-      // component, not as a standalone entry. Skip in disk-walk so they
-      // don't show up as "extras".
       if (isTestFilename(e.name)) continue;
       const ext = extname(e.name);
       if (!SOURCE_EXTS.includes(ext as SourceExt)) continue;

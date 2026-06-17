@@ -16,6 +16,16 @@ export interface BookConfig {
   title: string;
   sidebar?: BookSidebar;
   fixtures?: Record<string, JsonObject>;
+  /**
+   * Registry components that wrap every preview (outermost last).
+   * Example: `["ThemeProvider"]` for themed UI primitives.
+   */
+  providers?: string[];
+  /**
+   * Fallback host scope keys when no app has POSTed GET /scope yet.
+   * Book auto-stubs each key; registry-reported scope takes precedence.
+   */
+  scopeKeys?: string[];
   /** Primary entry list (preferred). */
   entries?: BookEntry[];
   /** Legacy alias — normalized to `entries` on load. */

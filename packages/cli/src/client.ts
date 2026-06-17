@@ -37,9 +37,9 @@ export interface UploadResponse {
 }
 
 export type UploadBody =
-  | { name: string; source: string; description?: string; test?: string; bookConfig?: BookConfigPayload }
+  | { name: string; source: string; description?: string; bookConfig?: BookConfigPayload }
   | {
-      components: Array<{ name: string; source: string; description?: string; test?: string }>;
+      components: Array<{ name: string; source: string; description?: string }>;
       bookConfig?: BookConfigPayload;
     };
 

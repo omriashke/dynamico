@@ -20,6 +20,7 @@ export { Registry } from "./registry.js";
 export { loadModule } from "./loader.js";
 export { createRemoteSource, type RemoteSourceOptions } from "./sources/remote.js";
 export { validateProps, type PropsValidationResult } from "./propsSchema.js";
+export { generateDefaultProps } from "./defaultProps.js";
 export {
   collectBookPreviewPropSets,
   normalizeBookPreviewConfig,

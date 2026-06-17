@@ -110,7 +110,12 @@ export function DynamicoBook({
           <main className="db-canvas">
             {entry ? (
               <div style={entryCanvasStyle(entry)}>
-                <BookEntryCanvas entry={entry} fixtures={fixtures} registryUrl={registryUrl} />
+                <BookEntryCanvas
+                  entry={entry}
+                  fixtures={fixtures}
+                  registryUrl={registryUrl}
+                  providers={config?.providers ?? []}
+                />
               </div>
             ) : (
               <div className="db-empty">Select an entry from the sidebar</div>

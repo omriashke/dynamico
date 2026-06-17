@@ -20,51 +20,27 @@ That means the agent can do a proper edit loop:
 4. **Validate** — `dynamico push <name> --source <file> --dry-run --json` to get structured diagnostics without writing.
 5. **Commit** — `dynamico push <name> --source <file>` to write + broadcast.
 
-## Test gate (every push is server-validated)
+## Push validation (automatic — no author test files)
 
-**Every component must ship with a co-located `Foo.test.tsx`.** The registry
-runs the test in a Node worker thread (5s timeout) before accepting the
-push; missing or failing tests cause HTTP 422 and the component is not
-served to clients.
+Every push is validated in a Node worker (5s timeout) **before** the component
+is served to clients. The registry automatically:
 
-```
-my-components/
-├── Counter.tsx
-└── Counter.test.tsx     ← auto-discovered by `dynamico push` and `dynamico dev`
-```
+1. Renders the component with default props derived from `propsSchema`.
+2. Renders every `book.config.json` preview for that component (with configured
+   `providers`, e.g. `ThemeProvider`).
 
-A test is just a `.tsx` whose default export is an async function that
-exercises the component:
-
-```tsx
-import * as React from 'react';
-import { render, press, findByText } from '@omriashke/dynamico-test';
-import Counter from './Counter';
-
-export default async function test() {
-  const tree = render(<Counter initial={0} />);
-  press(findByText(tree, '+'));
-  // throw to fail; no assertion = pass
-}
-```
-
-`@omriashke/dynamico-test` exports `render`, `press`, `longPress`,
-`changeText`, `findByText`, `findAllByType`, `queryByText`, `sleep`,
-`flush`, `expect`, and `setHostScope`. It auto-stubs unknown modules to a
-permissive Proxy (callable, iterable as `[]`, string-coercible), so most
-components render without setup. For hooks whose return shape matters, call
-`setHostScope({ '@my/hooks': { useThing: () => ({...}) } })` before
-`render()`.
-
-Two rejection categories:
+Missing scope bindings, render crashes, and book preview failures cause HTTP
+422 and the component is **not** broadcast. **Do not write `Foo.test.tsx`
+files** — they are ignored and not uploaded.
 
 | Phase   | Meaning |
 |---------|---------|
-| `scope` | Component imports a bare specifier that's not in the host's reported scope. Caught before the device sees it. |
-| `test`  | The test threw (a render crash, an `expect` failure, a timeout). |
+| `scope` | Component imports a bare specifier that's not in the host's reported scope. |
+| `render`| Default-props smoke render threw. |
+| `book`  | A `book.config.json` preview threw. |
 
-Operator escape hatch: set `DYNAMICO_TEST_SKIP=1` on the registry process to
-bypass the gate entirely. **There is no author-side `--skip-tests` flag.**
+Operator escape hatch: set `DYNAMICO_VALIDATE_SKIP=1` (or legacy
+`DYNAMICO_TEST_SKIP=1`) on the registry process to bypass validation.
 
 ## Host scope (auto-reported)
 
@@ -91,7 +67,7 @@ permissive in that case).
 
 ```
 dynamico push <name> [--source <path> | --stdin | --dir <path>]
-                     [--description <text>] [--test <path>] [--dry-run] [--json]
+                     [--description <text>] [--dry-run] [--json]
 dynamico pull <name> [--source] [--out <path>] [--json]
 dynamico list [--json]
 dynamico search <query> [--json]
@@ -206,7 +182,7 @@ Omission = deletion.
 ## Authoring rules
 
 - **Must have a default export.** Missing default → code `DYN0001`.
-- **Must ship with a co-located `.test.tsx`** (see "Test gate" above). Missing test → push rejected unless `DYNAMICO_TEST_SKIP=1` on the server.
+- **No co-located test files.** Push validation is automatic (see above).
 - **Only import the host scope.** Web: `"react"`. Expo: `"react"` and `"react-native"`. Plus anything the host registered via `<DynamicoProvider scope={...}>`. Imports outside the reported scope are rejected at push time with a `'foo' is not in host scope` error.
 - **Relative imports resolve to other dynamic components.** `import Other from "./Other"` expects `Other` to exist in the registry; it's fetched lazily and hot-swapped independently.
 - **Local helpers are auto-bundled.** `./themeMap.ts` or `../utils.ts` files that are **not** registered component names are inlined at `dynamico push` via esbuild. Do **not** import utility functions from `../foo` unless `foo` is a pushed component or the helper is on host scope (`@newscast/utils-app-ui`). A push whose compiled output still contains `require("../unregistered")` is **rejected** with `RELATIVE_IMPORT`.
@@ -227,19 +203,6 @@ export const propsSchema = {
 
 export default function MyComponent({ label = "hi" }: { label?: string }) {
   return <div>{label}</div>;
-}
-```
-
-`MyComponent.test.tsx` (required — push is rejected without it):
-
-```tsx
-import React from "react";
-import { render } from "@omriashke/dynamico-test";
-import MyComponent from "./MyComponent";
-
-export default async function test() {
-  render(<MyComponent />);
-  render(<MyComponent label="custom" />);
 }
 ```
 

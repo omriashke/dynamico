@@ -5,6 +5,10 @@ export type BookPreviewJson = Record<string, unknown>;
 
 export interface BookPreviewConfig {
   fixtures?: Record<string, BookPreviewJson>;
+  /** Registry components wrapping every preview (outermost last). */
+  providers?: string[];
+  /** Fallback scope keys when the registry has no cached host scope. */
+  scopeKeys?: string[];
   entries?: BookPreviewEntry[];
   /** Legacy alias — normalized to `entries`. */
   stories?: BookPreviewEntry[];
