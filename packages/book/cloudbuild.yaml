@@ -10,7 +10,7 @@ steps:
         docker buildx build \
           --platform linux/amd64,linux/arm64 \
           --file packages/book/Dockerfile \
-          --tag omriashkenazi/dynamico-book:0.1.2 \
+          --tag omriashkenazi/dynamico-book:0.1.4 \
           --tag omriashkenazi/dynamico-book:latest \
           --push \
           .

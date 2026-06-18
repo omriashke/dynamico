@@ -8,6 +8,7 @@ import type {
   Version,
 } from "./types.js";
 import { loadModule } from "./loader.js";
+import { collectRelativeComponentDeps } from "./relativeRequires.js";
 
 /**
  * In-memory, versioned registry of dynamic components.
@@ -28,7 +29,7 @@ export class Registry {
     private scope: Scope,
   ) {
     this.source.subscribe(({ module }) => {
-      this.ingest(module.name, module);
+      void this.ingestAsync(module.name, module);
     });
   }
 
@@ -62,7 +63,7 @@ export class Registry {
     if (pending) return pending;
     const p = this.source
       .fetch(name)
-      .then((module) => this.ingest(name, module))
+      .then((module) => this.ingestAsync(name, module))
       .finally(() => {
         this.inflight.delete(name);
       });
@@ -97,14 +98,10 @@ export class Registry {
    * Cross-component imports look up other components by name in the registry.
    * v1: we map "./Other" -> "Other" (basename, no extension).
    *
-   * The returned value is a *lazy proxy module*: it has the same shape as
-   * a real CommonJS module (`{ default, ...rest }`), but every member is a
-   * React function component that re-resolves the target on each render.
-   * This means:
-   *   - Card can `require("./Hello")` at eval time even before Hello has
-   *     loaded — the proxy is returned immediately.
-   *   - When Hello actually arrives (or hot-swaps to a new version), Card's
-   *     next render automatically picks it up; no manual preload needed.
+   * Returns a lazy proxy module. When the dependency is loaded, non-component
+   * exports (e.g. `Colors`) and hooks resolve to their real values so module-
+   * level reads like `Colors.primary` work. Components not yet loaded still
+   * get lazy wrappers that re-resolve on each render for hot-swap.
    */
   requireByPath(specifier: string): unknown {
     const base = specifier
@@ -123,6 +120,13 @@ export class Registry {
 
   private lazyProxies = new Map<string, Record<string, unknown>>();
 
+  private resolveExport(name: string, key: string): unknown | undefined {
+    const entry = this.entries.get(name);
+    if (!entry?.factory || entry.error) return undefined;
+    if (!Object.prototype.hasOwnProperty.call(entry.factory, key)) return undefined;
+    return entry.factory[key];
+  }
+
   private makeLazyProxy(name: string): Record<string, unknown> {
     const cached = this.lazyProxies.get(name);
     if (cached) return cached;
@@ -131,32 +135,20 @@ export class Registry {
     const make = (key: string) => {
       const Comp = function LazyDynamic(props: Record<string, unknown>) {
         const entry = registry.entries.get(name);
-        // Not loaded yet — render nothing. When the dependency arrives, the
-        // cross-dep notification in `notify()` refreshes our parent's entry,
-        // which causes useSyncExternalStore to re-render and we'll resolve
-        // for real on the next pass.
         if (!entry || (!entry.factory && !entry.error)) return null;
-        if (entry.error) {
-          // Surface the dep error inline. Parent can wrap in errorFallback at
-          // its own level if it wants; we don't have access to it here.
-          return null;
-        }
+        if (entry.error) return null;
         const target = entry.factory?.[key];
         if (typeof target !== "function") return null;
-        // The host-scope's React.createElement is what invoked us; we just
-        // call the real component function. props is what the parent passed.
         return (target as (p: Record<string, unknown>) => unknown)(props);
       };
       Object.defineProperty(Comp, "name", { value: `Lazy(${name}.${key})` });
       return Comp;
     };
-    proxy.default = make("default");
-    // Allow named imports via Proxy: any key access returns a fresh lazy
-    // component bound to that key. Default is set above; everything else
-    // is created on demand.
     const handler: ProxyHandler<Record<string, unknown>> = {
       get(target, prop) {
         if (typeof prop !== "string") return undefined;
+        const resolved = registry.resolveExport(name, prop);
+        if (resolved !== undefined) return resolved;
         if (prop in target) return target[prop];
         const c = make(prop);
         target[prop] = c;
@@ -172,7 +164,10 @@ export class Registry {
    * Take a CompiledModule from the source, evaluate it (or record a compile
    * error), update the entry, and notify listeners.
    */
-  private ingest(name: string, module: import("./types.js").CompiledModule): RegistryEntry {
+  private async ingestAsync(
+    name: string,
+    module: import("./types.js").CompiledModule,
+  ): Promise<RegistryEntry> {
     if (module.removed) {
       this.entries.delete(name);
       this.lazyProxies.delete(name);
@@ -204,6 +199,9 @@ export class Registry {
       };
     } else {
       try {
+        const deps = collectRelativeComponentDeps(module.code, name);
+        await Promise.all(deps.map((dep) => this.ensure(dep)));
+        this.lazyProxies.delete(name);
         const factory = loadModule(module.code, this.scope, (rel) =>
           this.requireByPath(rel),
         ) as ComponentFactory;

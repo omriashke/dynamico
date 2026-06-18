@@ -19,10 +19,13 @@ export default defineConfig({
     port: 6006,
     proxy: {
       '/api/dynamico': {
-        target: 'http://127.0.0.1:4000',
+        target: process.env.DYNAMICO_REGISTRY_PROXY ?? 'http://127.0.0.1:4000',
         changeOrigin: true,
         ws: true,
-        rewrite: (p) => p.replace(/^\/api\/dynamico/, ''),
+        rewrite: (p) =>
+          process.env.DYNAMICO_REGISTRY_PROXY
+            ? p
+            : p.replace(/^\/api\/dynamico/, ''),
       },
     },
   },
