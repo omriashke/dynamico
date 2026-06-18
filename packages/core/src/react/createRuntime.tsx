@@ -188,7 +188,10 @@ export function createRuntime(
 
 function pickDefault(factory: ComponentFactory): unknown {
   if (factory && typeof factory === "object") {
-    if ("default" in factory && factory.default) return factory.default;
+    if ("default" in factory) {
+      const d = factory.default;
+      if (typeof d === "function") return d;
+    }
     // CommonJS interop: the value itself may be the component
     if (typeof factory === "function") return factory;
   }

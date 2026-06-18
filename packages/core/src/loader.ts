@@ -1,5 +1,34 @@
 import type { Scope } from "./types.js";
 
+/** esbuild CJS bundles assign exports before the component function; materialize at end. */
+function patchEsbuildDefaultExport(code: string): string {
+  const m = code.match(/default:\s*\(\)\s*=>\s*(\w+)/);
+  if (!m) return code;
+  const fn = m[1];
+  return `${code}\n;try{if(typeof ${fn}==='function'){module.exports.default=${fn};}}catch(e){}\n`;
+}
+
+/** Replace getter-only exports with plain values (Hermes-safe). */
+function materializeGetterExports(exports: Record<string, unknown>): void {
+  for (const key of Object.getOwnPropertyNames(exports)) {
+    const desc = Object.getOwnPropertyDescriptor(exports, key);
+    if (!desc?.get || desc.set) continue;
+    try {
+      const value = desc.get.call(exports);
+      if (value !== undefined) {
+        Object.defineProperty(exports, key, {
+          value,
+          enumerable: true,
+          configurable: true,
+          writable: true,
+        });
+      }
+    } catch {
+      /* leave getter */
+    }
+  }
+}
+
 /**
  * Execute a CommonJS-style code string in a controlled scope.
  *
@@ -36,8 +65,9 @@ export function loadModule(
 
   // The compiled body is just the function body; arguments are well-known.
   // eslint-disable-next-line no-new-func
-  const fn = new Function("module", "exports", "require", code);
+  const fn = new Function("module", "exports", "require", patchEsbuildDefaultExport(code));
   fn(moduleObj, moduleObj.exports, requireFn);
+  materializeGetterExports(moduleObj.exports);
 
   return moduleObj.exports;
 }

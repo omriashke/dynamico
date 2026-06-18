@@ -155,6 +155,11 @@ function flattenEsbuildBundle(code: string): string {
     "var $1 = require($2);",
   );
   out = out.replace(/(\w+)\.default\.createElement/g, "$1.createElement");
+  const m = out.match(/default:\s*\(\)\s*=>\s*(\w+)/);
+  if (m) {
+    const fn = m[1];
+    out += `\n;try{if(typeof ${fn}==='function'){module.exports.default=${fn};}}catch(e){}\n`;
+  }
   return out;
 }
 
