@@ -34,6 +34,26 @@ export interface RunValidateResult {
   };
 }
 
+/** Stub nested registry loads during push validation (e.g. AppShell → WelcomeScreen). */
+function DynamicComponentStub({
+  name,
+  fallback,
+  errorFallback: _errorFallback,
+  props: _props,
+}: {
+  name?: string;
+  fallback?: React.ReactNode;
+  errorFallback?: React.ComponentType<{ error: unknown }>;
+  props?: Record<string, unknown>;
+}) {
+  if (fallback != null) return fallback as React.ReactElement;
+  return React.createElement(RNMock.Text, null, name ? `[${name}]` : null);
+}
+
+function DynamicoProviderStub({ children }: { children?: React.ReactNode }) {
+  return children as React.ReactElement | null;
+}
+
 const BUILT_IN_SCOPE: Scope = {
   react: React,
   "react-native": RNMock,
@@ -43,7 +63,11 @@ const BUILT_IN_SCOPE: Scope = {
     default: ({ children }: { children?: React.ReactNode }) =>
       React.createElement(RNMock.Text, null, children),
   },
-  "@omriashke/dynamico-native": {},
+  "@omriashke/dynamico-native": {
+    __esModule: true,
+    DynamicComponent: DynamicComponentStub,
+    DynamicoProvider: DynamicoProviderStub,
+  },
 };
 
 function resolveRelativeComponentName(specifier: string): string | null {
