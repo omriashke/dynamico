@@ -5,7 +5,7 @@ function patchEsbuildDefaultExport(code: string): string {
   const m = code.match(/default:\s*\(\)\s*=>\s*(\w+)/);
   if (!m) return code;
   const fn = m[1];
-  return `${code}\n;try{if(typeof ${fn}==='function'){module.exports.default=${fn};}}catch(e){}\n`;
+  return `${code}\n;try{var __d=${fn};if(typeof __d==='function'){try{Object.defineProperty(module.exports,'default',{value:__d,enumerable:true,writable:true,configurable:true});}catch(e){module.exports.default=__d;}}}catch(e){}\n`;
 }
 
 /** Replace getter-only exports with plain values (Hermes-safe). */
@@ -16,12 +16,17 @@ function materializeGetterExports(exports: Record<string, unknown>): void {
     try {
       const value = desc.get.call(exports);
       if (value !== undefined) {
-        Object.defineProperty(exports, key, {
-          value,
-          enumerable: true,
-          configurable: true,
-          writable: true,
-        });
+        try {
+          Object.defineProperty(exports, key, {
+            value,
+            enumerable: true,
+            configurable: true,
+            writable: true,
+          });
+        } catch {
+          // Hermes may leave non-configurable getters; assign directly.
+          (exports as Record<string, unknown>)[key] = value;
+        }
       }
     } catch {
       /* leave getter */
