@@ -103,6 +103,12 @@ export interface Source {
   fetch(name: string): Promise<CompiledModule>;
   /** Subscribe to updates for any component. Returns unsubscribe fn. */
   subscribe(listener: (update: SourceUpdate) => void): () => void;
+  /**
+   * Subscribe to live WebSocket updates for a component. Ref-counted; the
+   * socket connects lazily on the first watch and only receives pushes for
+   * watched names. Returns a release function.
+   */
+  watch?(name: string): () => void;
   /** Optional disposal hook. */
   dispose?(): void;
   /**

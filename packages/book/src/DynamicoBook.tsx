@@ -17,22 +17,25 @@ function registryHeaders(auth?: DynamicoBookProps['auth']): Record<string, strin
 export function DynamicoBook({
   registryUrl = DEFAULT_REGISTRY,
   scope,
+  source: externalSource,
   auth,
   pollMs = 2000,
   syncUrl = true,
   urlMode = 'hash',
   basePath = '/',
+  autoSelectFirst = false,
 }: DynamicoBookProps) {
   const [config, setConfig] = useState<BookConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const source = useMemo(
     () =>
+      externalSource ??
       createRemoteSource({
         url: registryUrl,
         headers: () => registryHeaders(auth),
       }),
-    [registryUrl, auth?.token, auth?.apiKey],
+    [externalSource, registryUrl, auth?.token, auth?.apiKey],
   );
 
   useEffect(() => {
@@ -57,6 +60,7 @@ export function DynamicoBook({
     syncUrl,
     urlMode,
     basePath,
+    autoSelectFirst,
   });
 
   const entry = config && selectedId ? findEntry(config, selectedId) : undefined;

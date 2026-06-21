@@ -1,5 +1,6 @@
 import * as React from "react";
 import { Registry } from "../registry.js";
+import { resolveModuleDefault } from "../loader.js";
 import type {
   ComponentFactory,
   DynamicError,
@@ -187,22 +188,8 @@ export function createRuntime(
 }
 
 function pickDefault(factory: ComponentFactory): unknown {
-  if (typeof factory === "function") return factory;
-  if (!factory || typeof factory !== "object") return undefined;
-  if ("default" in factory) {
-    const desc = Object.getOwnPropertyDescriptor(factory, "default");
-    if (desc?.get && !desc.set) {
-      try {
-        const fromGetter = desc.get.call(factory);
-        if (typeof fromGetter === "function") return fromGetter;
-      } catch {
-        /* fall through */
-      }
-    }
-    const d = factory.default;
-    if (typeof d === "function") return d;
-  }
-  return undefined;
+  const d = resolveModuleDefault(factory);
+  return typeof d === "function" ? d : undefined;
 }
 
 function defaultErrorView(error: DynamicError): React.ReactElement {

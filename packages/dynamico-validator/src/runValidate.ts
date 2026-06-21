@@ -1,6 +1,7 @@
 import * as React from "react";
 import {
   loadModule,
+  resolveModuleDefault,
   generateDefaultProps,
   collectBookPreviewPropSets,
   normalizeBookPreviewConfig,
@@ -13,6 +14,7 @@ import { validationHostScope } from "./hostScope.js";
 import { resolveRegistryComponentStub, wrapWithBookProviders } from "./registryStubs.js";
 import * as RNMock from "./mocks/react-native.js";
 import * as SafeAreaMock from "./mocks/safe-area-context.js";
+import * as SvgMock from "./mocks/react-native-svg.js";
 
 export interface RunValidateInput {
   name: string;
@@ -58,7 +60,7 @@ const BUILT_IN_SCOPE: Scope = {
   react: React,
   "react-native": RNMock,
   "react-native-safe-area-context": SafeAreaMock,
-  "react-native-svg": {},
+  "react-native-svg": SvgMock,
   "react-native-markdown-display": {
     default: ({ children }: { children?: React.ReactNode }) =>
       React.createElement(RNMock.Text, null, children),
@@ -163,7 +165,7 @@ export async function runValidate(input: RunValidateInput): Promise<RunValidateR
     };
   }
 
-  const Component = (componentExports as Record<string, unknown>)?.default as
+  const Component = resolveModuleDefault(componentExports) as
     | React.ComponentType<Record<string, unknown>>
     | undefined;
   if (typeof Component !== "function") {

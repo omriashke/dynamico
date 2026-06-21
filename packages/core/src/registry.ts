@@ -23,14 +23,36 @@ export class Registry {
   private listeners = new Map<string, Set<RegistryListener>>();
   private anyListeners = new Set<RegistryListener>();
   private inflight = new Map<string, Promise<RegistryEntry>>();
+  /** WS push cache — modules are ingested only when ensure() or a subscriber asks. */
+  private moduleCache = new Map<string, import("./types.js").CompiledModule>();
+  private watchReleases = new Map<string, () => void>();
 
   constructor(
     private readonly source: Source,
     private scope: Scope,
   ) {
     this.source.subscribe(({ module }) => {
-      void this.ingestAsync(module.name, module);
+      if (module.removed) {
+        this.moduleCache.delete(module.name);
+        if (this.entries.has(module.name) || (this.listeners.get(module.name)?.size ?? 0) > 0) {
+          void this.ingestAsync(module.name, module);
+        }
+        return;
+      }
+      this.moduleCache.set(module.name, module);
+      if (this.shouldIngestOnPush(module.name)) {
+        void this.ingestAsync(module.name, module);
+      }
     });
+  }
+
+  /** Re-ingest a WS push when the component is already loaded or has active subscribers. */
+  private shouldIngestOnPush(name: string): boolean {
+    return (
+      this.entries.has(name) ||
+      (this.listeners.get(name)?.size ?? 0) > 0 ||
+      this.inflight.has(name)
+    );
   }
 
   /** Replace or extend the current scope (rare; typically set once). */
@@ -61,8 +83,8 @@ export class Registry {
     if (existing) return existing;
     const pending = this.inflight.get(name);
     if (pending) return pending;
-    const p = this.source
-      .fetch(name)
+    const cached = this.moduleCache.get(name);
+    const p = (cached ? Promise.resolve(cached) : this.source.fetch(name))
       .then((module) => this.ingestAsync(name, module))
       .finally(() => {
         this.inflight.delete(name);
@@ -78,10 +100,23 @@ export class Registry {
       set = new Set();
       this.listeners.set(name, set);
     }
+    const wasEmpty = set.size === 0;
     set.add(listener);
+    if (wasEmpty && this.source.watch) {
+      this.watchReleases.set(name, this.source.watch(name));
+    }
+    const cached = this.moduleCache.get(name);
+    if (cached && !this.entries.has(name) && !this.inflight.has(name)) {
+      void this.ingestAsync(name, cached);
+    }
     return () => {
       set!.delete(listener);
-      if (set!.size === 0) this.listeners.delete(name);
+      if (set!.size === 0) {
+        this.listeners.delete(name);
+        const release = this.watchReleases.get(name);
+        release?.();
+        this.watchReleases.delete(name);
+      }
     };
   }
 

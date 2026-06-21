@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 
 const require = createRequire(import.meta.url);
 const appDir = path.dirname(fileURLToPath(import.meta.url));
+const dynamicoRoot = path.resolve(appDir, '../..');
 const rnwPath = path.dirname(require.resolve('react-native-web/package.json'));
 const rnSvgWebPath = require.resolve('react-native-svg-web');
 
@@ -38,11 +39,24 @@ export default defineConfig({
         find: 'expo-secure-store',
         replacement: path.resolve(appDir, 'src/stubs/expo-secure-store.ts'),
       },
+      {
+        find: '@omriashke/dynamico-core',
+        replacement: path.resolve(dynamicoRoot, 'packages/core/dist/index.js'),
+      },
+      {
+        find: '@omriashke/dynamico-web',
+        replacement: path.resolve(dynamicoRoot, 'packages/web/dist/index.js'),
+      },
     ],
     extensions: ['.web.tsx', '.web.ts', '.web.js', '.tsx', '.ts', '.js'],
   },
   optimizeDeps: {
-    exclude: ['@omriashke/dynamico-book', 'expo-secure-store'],
-    include: ['react-native-web', 'react-native-svg-web', '@omriashke/dynamico-web', 'prop-types'],
+    exclude: [
+      '@omriashke/dynamico-book',
+      '@omriashke/dynamico-web',
+      '@omriashke/dynamico-core',
+      'expo-secure-store',
+    ],
+    include: ['react-native-web', 'react-native-svg-web', 'prop-types'],
   },
 });

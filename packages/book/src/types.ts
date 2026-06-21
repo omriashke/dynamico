@@ -72,6 +72,8 @@ export interface DynamicoBookProps {
   registryUrl?: string;
   /** Host scope passed to DynamicoProvider — the only host-specific wiring. */
   scope: import('@omriashke/dynamico-web').Scope;
+  /** Shared registry source (avoids duplicate WebSocket connections in book hosts). */
+  source?: import('@omriashke/dynamico-web').Source;
   auth?: BookAuthOptions;
   /** Config poll interval in ms. Default 2000. */
   pollMs?: number;
@@ -88,4 +90,9 @@ export interface DynamicoBookProps {
   urlMode?: import('./entryUrl.js').BookEntryUrlMode;
   /** App base path when `urlMode` is `path` (e.g. `/book/`). */
   basePath?: string;
+  /**
+   * When false (default), no sidebar entry is selected until the user clicks one
+   * or the URL names a valid entry — registry component bundles are not prefetched.
+   */
+  autoSelectFirst?: boolean;
 }

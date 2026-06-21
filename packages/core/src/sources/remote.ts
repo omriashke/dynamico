@@ -14,22 +14,21 @@ export interface RemoteSourceOptions {
   /**
    * Headers to send on every request. Called on each HTTP fetch and on each
    * WebSocket reconnect, so the function can return a freshly-rotated token.
-   *
-   * - HTTP: merged into the `Authorization: ...` / `x-api-key: ...` request headers.
-   * - WebSocket: passed as `new WebSocket(url, undefined, { headers })`. This
-   *   works on React Native (which extends the standard constructor); browsers
-   *   silently ignore it because the spec doesn't allow custom WS handshake
-   *   headers. For browsers behind authenticated reverse proxies, use a
-   *   query-string token in `wsUrl` or front the registry with cookie auth.
    */
   headers?: () => Record<string, string>;
+  /**
+   * When false, skip WebSocket entirely (HTTP fetch only).
+   * @default true
+   */
+  webSocket?: boolean;
 }
 
 /**
  * Talks to @omriashke/dynamico-registry (or any compatible server).
  *
  *   GET  {url}/component/:name      -> CompiledModule (initial fetch)
- *   WS   {wsUrl}/subscribe          -> stream of CompiledModule updates
+ *   WS   {wsUrl}/subscribe          -> filtered push stream; client sends
+ *                                     `{ op: "watch", names: [...] }`
  */
 export function createRemoteSource(options: RemoteSourceOptions): Source {
   const fetchImpl: typeof fetch =
@@ -52,18 +51,36 @@ export function createRemoteSource(options: RemoteSourceOptions): Source {
     options.wsUrl ?? httpUrl.replace(/^http/, "ws") + "/subscribe";
 
   const listeners = new Set<(u: SourceUpdate) => void>();
+  const watchedNames = new Set<string>();
+  const watchRefCounts = new Map<string, number>();
   let socket: WebSocket | null = null;
   let disposed = false;
+  let pendingWatchSync = false;
   const reconnectMs = options.reconnectMs ?? 1000;
+  const useWebSocket = options.webSocket !== false;
+
+  function pushWatchSet(): void {
+    if (!useWebSocket || watchedNames.size === 0) return;
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      pendingWatchSync = true;
+      connect();
+      return;
+    }
+    pendingWatchSync = false;
+    try {
+      socket.send(JSON.stringify({ op: "watch", names: [...watchedNames] }));
+    } catch {
+      /* ignore */
+    }
+  }
 
   function connect(): void {
-    if (disposed) return;
+    if (disposed || !useWebSocket || watchedNames.size === 0) return;
+    if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
     try {
       const hdrs = options.headers?.();
-      // RN's WebSocket constructor accepts a third {headers} arg that lets us
-      // attach Bearer / x-api-key tokens to the upgrade request. The standard
-      // browser WebSocket ignores extra constructor args, so this is a no-op
-      // there (use cookies / a query-string token instead).
       socket = hdrs
         ? new (WSCtor as unknown as new (
             url: string,
@@ -71,10 +88,13 @@ export function createRemoteSource(options: RemoteSourceOptions): Source {
             options?: { headers?: Record<string, string> },
           ) => WebSocket)(wsUrl, undefined, { headers: hdrs })
         : new WSCtor(wsUrl);
-    } catch (err) {
+    } catch {
       scheduleReconnect();
       return;
     }
+    socket.onopen = () => {
+      if (pendingWatchSync || watchedNames.size > 0) pushWatchSet();
+    };
     socket.onmessage = (ev: MessageEvent) => {
       try {
         const data =
@@ -103,11 +123,40 @@ export function createRemoteSource(options: RemoteSourceOptions): Source {
   }
 
   function scheduleReconnect(): void {
-    if (disposed) return;
+    if (disposed || !useWebSocket || watchedNames.size === 0) return;
     setTimeout(connect, reconnectMs);
   }
 
-  connect();
+  function watch(name: string): () => void {
+    if (!useWebSocket) return () => undefined;
+    const next = (watchRefCounts.get(name) ?? 0) + 1;
+    watchRefCounts.set(name, next);
+    if (next === 1) {
+      watchedNames.add(name);
+      pushWatchSet();
+    }
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      const count = (watchRefCounts.get(name) ?? 1) - 1;
+      if (count <= 0) {
+        watchRefCounts.delete(name);
+        watchedNames.delete(name);
+        pushWatchSet();
+        if (watchedNames.size === 0) {
+          try {
+            socket?.close();
+          } catch {
+            /* noop */
+          }
+          socket = null;
+        }
+      } else {
+        watchRefCounts.set(name, count);
+      }
+    };
+  }
 
   return {
     async fetch(name: string): Promise<CompiledModule> {
@@ -136,15 +185,7 @@ export function createRemoteSource(options: RemoteSourceOptions): Source {
         listeners.delete(listener);
       };
     },
-    /**
-     * Tell the registry what bare specifiers the host's scope exposes. The
-     * registry uses this to validate that every component's imports resolve
-     * against something the host actually provides — so a typo or a forgotten
-     * scope entry is caught at push time, not at navigation time.
-     *
-     * Best-effort: failures (network, 5xx, server doesn't support /scope) are
-     * silently swallowed; they don't block the app from running.
-     */
+    watch,
     async reportScope(keys, reportedBy) {
       try {
         const baseHeaders = options.headers?.() ?? {};
@@ -154,16 +195,19 @@ export function createRemoteSource(options: RemoteSourceOptions): Source {
           body: JSON.stringify({ keys: [...keys], reportedBy }),
         });
       } catch {
-        /* best-effort: never block the host on this */
+        /* best-effort */
       }
     },
     dispose() {
       disposed = true;
+      watchedNames.clear();
+      watchRefCounts.clear();
       try {
         socket?.close();
       } catch {
         /* noop */
       }
+      socket = null;
     },
   };
 }

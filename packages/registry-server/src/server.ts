@@ -392,15 +392,46 @@ export async function createServer(options: CreateServerOptions): Promise<{
 
   app.register(async function wsRoutes(scoped) {
     scoped.get("/subscribe", { websocket: true }, (socket) => {
+      const watched = new Set<string>();
+
       const send = (m: CompiledModule) => {
+        if (!watched.has(m.name)) return;
         try {
           socket.send(JSON.stringify(m));
         } catch {
           /* ignore */
         }
       };
-      for (const m of store.list()) send(m);
+
+      const sendSnapshots = () => {
+        for (const name of watched) {
+          const mod = store.get(name);
+          if (mod) send(mod);
+        }
+      };
+
       const off = store.subscribe(send);
+
+      socket.on("message", (raw: Buffer | ArrayBuffer | Buffer[]) => {
+        try {
+          const text =
+            typeof raw === "string"
+              ? raw
+              : Buffer.isBuffer(raw)
+                ? raw.toString("utf8")
+                : Buffer.from(raw as ArrayBuffer).toString("utf8");
+          const msg = JSON.parse(text) as { op?: string; names?: unknown };
+          if (msg.op !== "watch" || !Array.isArray(msg.names)) return;
+          watched.clear();
+          for (const name of msg.names) {
+            if (typeof name === "string" && name.length > 0) watched.add(name);
+          }
+          sendSnapshots();
+        } catch {
+          /* ignore malformed client frames */
+        }
+      });
+
       socket.on("close", off);
     });
   });

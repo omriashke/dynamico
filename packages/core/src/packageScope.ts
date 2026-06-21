@@ -22,6 +22,7 @@ interface ModuleState {
   /** Bumped on every ingest so useSyncExternalStore subscribers re-render. */
   revision: number;
   listeners: Set<() => void>;
+  watchRelease?: () => void;
 }
 
 /**
@@ -52,9 +53,17 @@ export function createPackageScope(
 
   const subscribe = (name: string, listener: () => void): (() => void) => {
     const state = getState(name);
+    const wasEmpty = state.listeners.size === 0;
     state.listeners.add(listener);
+    if (wasEmpty && source.watch) {
+      state.watchRelease = source.watch(name);
+    }
     return () => {
       state.listeners.delete(listener);
+      if (state.listeners.size === 0) {
+        state.watchRelease?.();
+        state.watchRelease = undefined;
+      }
     };
   };
 
@@ -128,14 +137,16 @@ export function createPackageScope(
   };
 
   source.subscribe(({ module }) => {
-    if (componentSet.has(module.name)) {
+    if (!componentSet.has(module.name)) return;
+    const state = getState(module.name);
+    if (state.factory !== undefined || state.listeners.size > 0 || state.loading) {
       ingest(module.name, module);
     }
   });
 
   makeLazy = (name: string): LazyComponent => {
-    ensureLoaded(name);
     const Lazy: LazyComponent = (props) => {
+      ensureLoaded(name);
       const revision = useSyncExternalStore(
         (cb) => subscribe(name, cb),
         () => getRevision(name),

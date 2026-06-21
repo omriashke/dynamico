@@ -17,7 +17,12 @@ export type {
 } from "./types.js";
 
 export { Registry } from "./registry.js";
-export { loadModule } from "./loader.js";
+export { loadModule, resolveModuleDefault } from "./loader.js";
+export {
+  appendPlainEsbuildExports,
+  parseEsbuildNamedExports,
+  ESBUILD_FLATTEN_MARKER,
+} from "./esbuildFlatten.js";
 export { createRemoteSource, type RemoteSourceOptions } from "./sources/remote.js";
 export { validateProps, type PropsValidationResult } from "./propsSchema.js";
 export { generateDefaultProps } from "./defaultProps.js";

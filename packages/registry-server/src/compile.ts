@@ -6,6 +6,7 @@ import { basename, dirname, extname, resolve } from "node:path";
 import * as esbuild from "esbuild";
 import type { CompiledModule, Diagnostic } from "@omriashke/dynamico-core";
 import { typecheck } from "./typecheck.js";
+import { appendPlainEsbuildExports } from "@omriashke/dynamico-core";
 import { validateRelativeImports } from "./relativeImports.js";
 
 const requireFromHere = createRequire(import.meta.url);
@@ -82,7 +83,14 @@ async function babelOnly(name: string, source: string, ext: string): Promise<str
     configFile: false,
     sourceType: "module",
     presets: [
-      [presetEnv, { targets: { esmodules: false }, modules: "commonjs" }],
+      [
+        presetEnv,
+        {
+          targets: { ios: "9" },
+          modules: "commonjs",
+          bugfixes: true,
+        },
+      ],
       [presetReact, { runtime: "classic" }],
       [presetTypeScript, { isTSX: true, allExtensions: true }],
     ],
@@ -125,6 +133,9 @@ async function bundleWithEsbuild(
     platform: "neutral",
     write: false,
     target: "es2020",
+    // Hermes cannot parse async functions inside `new Function()`-evaluated
+    // registry bundles — downlevel async/await even though the target is modern.
+    supported: { "async-await": false },
     jsx: "transform",
     jsxFactory: "React.createElement",
     jsxFragment: "React.Fragment",
@@ -148,19 +159,14 @@ async function bundleWithEsbuild(
   return flattenEsbuildBundle(file.text);
 }
 
-/** Make esbuild CJS bundles compatible with the client loader + test worker (babel-shaped). */
-function flattenEsbuildBundle(code: string): string {
+/** Make esbuild CJS bundles compatible with the client loader + Hermes (plain exports, no getters). */
+export function flattenEsbuildBundle(code: string): string {
   let out = code.replace(
     /var (\w+) = __toESM\(require\(([^)]+)\)\);/g,
     "var $1 = require($2);",
   );
   out = out.replace(/(\w+)\.default\.createElement/g, "$1.createElement");
-  const m = out.match(/default:\s*\(\)\s*=>\s*(\w+)/);
-  if (m) {
-    const fn = m[1];
-    out += `\n;try{if(typeof ${fn}==='function'){module.exports.default=${fn};}}catch(e){}\n`;
-  }
-  return out;
+  return appendPlainEsbuildExports(out);
 }
 
 function babelErrorToDiagnostic(err: Error, source: string): Diagnostic {

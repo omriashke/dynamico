@@ -41,6 +41,13 @@ export const Modal = createHostComponent("Modal");
 export const ActivityIndicator = createHostComponent("ActivityIndicator");
 export const KeyboardAvoidingView = createHostComponent("KeyboardAvoidingView");
 export const RefreshControl = createHostComponent("RefreshControl");
+export const ImageBackground = createHostComponent("ImageBackground");
+
+export const PanResponder = {
+  create: (_config: unknown) => ({
+    panHandlers: {} as Record<string, unknown>,
+  }),
+};
 
 // FlatList passes data/renderItem in real RN; the mock does the same so
 // onPress handlers inside renderItem still get exercised by tests.
@@ -188,6 +195,8 @@ export default {
   ActivityIndicator,
   KeyboardAvoidingView,
   RefreshControl,
+  ImageBackground,
+  PanResponder,
   FlatList,
   StyleSheet,
   Platform,

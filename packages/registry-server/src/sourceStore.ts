@@ -319,11 +319,25 @@ export class FilesystemSourceStore {
   }
 
   /**
-   * Recursive scan of the source dir. Returns Map<name, relPath>. Throws on
-   * basename collisions so the operator finds out at startup instead of
-   * later, when a file mysteriously masks another.
+   * Build the set of components to compile. When dynamico.config.json lists
+   * entries, only those paths are used (nested index.ts barrels no longer
+   * collide). Without manifest entries, fall back to a full directory walk.
    */
   private async scan(): Promise<Map<string, string>> {
+    const manifestEntries = this.manifest.list();
+    if (manifestEntries.length > 0) {
+      const out = new Map<string, string>();
+      for (const { name, path: relPath } of manifestEntries) {
+        const abs = join(this.dir, relPath);
+        if (existsSync(abs)) out.set(name, relPath);
+      }
+      return out;
+    }
+    return this.scanAllSourceFiles();
+  }
+
+  /** Legacy recursive scan — used when the manifest is empty. */
+  private async scanAllSourceFiles(): Promise<Map<string, string>> {
     const out = new Map<string, string>();
     const collisions: Record<string, string[]> = {};
 
@@ -421,10 +435,18 @@ export class FilesystemSourceStore {
     if (isTestFilename(basename(rel))) return;
 
     const name = basename(rel, ext);
-
-    // Collision guard at runtime: if the manifest says this component maps
-    // to a different path, don't silently take over. Log and ignore.
     const existing = this.manifest.get(name);
+
+    // Only react to files listed in dynamico.config.json (or new files that
+    // match an unclaimed manifest basename).
+    if (existing) {
+      if (existing.path !== rel) return;
+    } else {
+      const listed = this.manifest.list().some((e) => e.path === rel);
+      if (this.manifest.list().length > 0 && !listed) return;
+    }
+
+    // Collision guard at runtime (legacy auto-discovered files).
     if (existing && existing.path !== rel) {
       this.log(
         `ignoring ${rel}: component '${name}' is already mapped to ${existing.path}. ` +

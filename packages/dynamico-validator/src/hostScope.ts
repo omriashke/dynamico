@@ -60,6 +60,7 @@ function createHostStub(): Record<string, unknown> {
     secureStore,
     createGqlClient: () => gqlClient,
     publicGqlClient: gqlClient,
+    loginImage: 1,
     MY_THEME_QUERY: "",
     UPDATE_THEME_MUTATION: "",
     FEED_QUERY: "",
@@ -129,7 +130,7 @@ export function validationHostScope(allowedScope?: readonly string[]): Scope {
           clearError: () => undefined,
           error: null,
         }),
-        useAppTheme: themeCtx,
+        useAppTheme: () => themeCtx,
         ThemeProvider: uiPkg.ThemeProvider,
         AuthProvider: ({ children }: { children: unknown }) => children,
       };
@@ -149,12 +150,16 @@ export function validationHostScope(allowedScope?: readonly string[]): Scope {
       continue;
     }
     if (key === "libphonenumber-js") {
-      scope[key] = {
-        __esModule: true,
-        default: {},
-        parsePhoneNumber: () => ({ isValid: () => true }),
+      const libPhone = {
+        parsePhoneNumber: () => ({ isValid: () => true, formatInternational: () => "" }),
         isValidPhoneNumber: () => true,
+        getCountries: () => ["US", "IL", "GB"],
+        getCountryCallingCode: () => "1",
+        AsYouType: function AsYouType() {
+          return { input: () => "", getNumber: () => undefined };
+        },
       };
+      scope[key] = { ...libPhone, __esModule: true, default: libPhone };
     }
   }
 

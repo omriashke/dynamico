@@ -1,6 +1,6 @@
 {
   "name": "@omriashke/dynamico-core",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Renderer-agnostic core for dynamico: source adapters, module loader, versioned component registry.",
   "license": "Apache-2.0",
   "type": "module",
@@ -10,7 +10,9 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
     }
   },
   "files": [
@@ -36,6 +38,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test test/loader.test.mjs test/registry.test.mjs",
     "dev": "tsc -p tsconfig.json -w"
   },
   "peerDependencies": {

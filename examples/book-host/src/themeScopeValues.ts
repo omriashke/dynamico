@@ -1,5 +1,5 @@
 /** Static theme tokens for @dynamico/ui scope (matches apps/app/dynamicoScope.ts). */
-const lightTheme = {
+export const lightTheme = {
   id: 'light' as const,
   name: 'Newscast',
   colors: {

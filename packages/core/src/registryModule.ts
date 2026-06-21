@@ -43,6 +43,7 @@ export function createRegistryModuleSubscription<T extends Record<string, unknow
 ): RegistryModuleSubscription<T> {
   let snapshot = { ...defaults } as T;
   const listeners = new Set<() => void>();
+  let watchRelease: (() => void) | undefined;
 
   const notify = () => {
     for (const listener of listeners) listener();
@@ -83,12 +84,20 @@ export function createRegistryModuleSubscription<T extends Record<string, unknow
     }
   });
 
-  void reload();
-
   return {
     subscribe(listener) {
       listeners.add(listener);
-      return () => listeners.delete(listener);
+      if (listeners.size === 1) {
+        if (source.watch) watchRelease = source.watch(name);
+        void reload();
+      }
+      return () => {
+        listeners.delete(listener);
+        if (listeners.size === 0) {
+          watchRelease?.();
+          watchRelease = undefined;
+        }
+      };
     },
     getSnapshot: () => snapshot,
     proxy,

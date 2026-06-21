@@ -17,7 +17,7 @@ import {
   createHostStub,
   createLibphonenumberStub,
 } from './hostStubs.js';
-import { THEME_SCOPE_VALUES } from './themeScopeValues.js';
+import { THEME_SCOPE_VALUES, lightTheme } from './themeScopeValues.js';
 
 /** Registry data modules (palette tokens) — not lazy React components in package scope. */
 const REGISTRY_DATA_MODULES = new Set(['Colors']);
@@ -96,17 +96,23 @@ function createUiPackageScope(
   source: Source,
   getScope: () => Scope,
   componentNames: readonly string[],
+  options: { fetchColors?: boolean } = {},
 ): Record<string, unknown> {
   const lazyComponents = componentNames.filter((n) => !REGISTRY_DATA_MODULES.has(n));
+  const fetchColors = options.fetchColors ?? false;
 
-  const colorsSub = createRegistryModuleSubscription(source, getScope, 'Colors', DEFAULT_COLORS);
-  const useColors = createUseRegistryModule(colorsSub);
+  const colorsSub = fetchColors
+    ? createRegistryModuleSubscription(source, getScope, 'Colors', DEFAULT_COLORS)
+    : null;
+  const useColors = colorsSub
+    ? createUseRegistryModule(colorsSub)
+    : () => DEFAULT_COLORS;
 
   return createPackageScope(source, getScope, {
     components: lazyComponents,
     reexports: { ThemeProvider: ['useTheme', 'useAppTheme'] },
     values: {
-      Colors: colorsSub.proxy,
+      Colors: colorsSub?.proxy ?? DEFAULT_COLORS,
       useColors,
       usePressScale,
       USE_NATIVE_DRIVER,
@@ -115,7 +121,27 @@ function createUiPackageScope(
   });
 }
 
-function createAppAuthScope(uiPkg: Record<string, unknown>): Record<string, unknown> {
+const BOOK_APP_THEME = {
+  theme: lightTheme,
+  themeId: 'light' as const,
+  themeMode: 'light' as const,
+  isDark: false,
+  colors: lightTheme.colors,
+  currentColors: lightTheme.colors,
+  setTheme: async () => {},
+  setThemeId: async () => {},
+  setThemeMode: async () => {},
+  toggleTheme: () => {},
+  toggleThemeMode: () => {},
+  availableThemes: [lightTheme],
+  availablePersonas: [] as string[],
+  personaNames: {} as Record<string, string>,
+};
+
+function createAppAuthScope(_uiPkg: Record<string, unknown>): Record<string, unknown> {
+  const useAppTheme = () => BOOK_APP_THEME;
+  const ThemeProvider = ({ children }: { children?: React.ReactNode }) =>
+    React.createElement(React.Fragment, null, children);
   return {
     useAuth: () => ({
       accessToken: null,
@@ -127,8 +153,9 @@ function createAppAuthScope(uiPkg: Record<string, unknown>): Record<string, unkn
       clearError: () => undefined,
       error: null,
     }),
-    useAppTheme: uiPkg.useTheme,
-    ThemeProvider: uiPkg.ThemeProvider,
+    useAppTheme,
+    useTheme: useAppTheme,
+    ThemeProvider,
     AuthProvider: stubProvider,
   };
 }
@@ -142,11 +169,13 @@ export function buildGenericBookScope(
   source: Source,
   options: {
     scopeKeys: readonly string[];
-    componentNames: readonly string[];
+    /** Omit or pass [] — book previews load components via DynamicComponent on demand. */
+    componentNames?: readonly string[];
   },
 ): Scope {
   const scopeRef: { current: Record<string, unknown> } = { current: {} };
   const getScope = () => scopeRef.current;
+  const componentNames = options.componentNames ?? [];
 
   const platformScope: Scope = {
     react: React,
@@ -170,7 +199,7 @@ export function buildGenericBookScope(
 
   for (const pkgKey of PACKAGE_SCOPE_KEYS) {
     if (keys.has(pkgKey)) {
-      uiPkg = createUiPackageScope(source, getScope, options.componentNames);
+      uiPkg = createUiPackageScope(source, getScope, componentNames, { fetchColors: false });
       break;
     }
   }
@@ -204,8 +233,8 @@ export function buildGenericBookScope(
   }
 
   // When the registry has no cached scope yet, still expose common consumer packages.
-  if (!uiPkg && options.componentNames.length > 0) {
-    uiPkg = createUiPackageScope(source, getScope, options.componentNames);
+  if (!uiPkg && componentNames.length > 0) {
+    uiPkg = createUiPackageScope(source, getScope, componentNames, { fetchColors: false });
     scope['@dynamico/ui'] = uiPkg;
     if (!scope['@newscast/app-auth']) {
       scope['@newscast/app-auth'] = createAppAuthScope(uiPkg);

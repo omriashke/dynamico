@@ -11,6 +11,8 @@ export interface UseBookEntrySelectionOptions {
   syncUrl: boolean;
   urlMode: BookEntryUrlMode;
   basePath?: string;
+  /** When true, select the first entry once the catalog loads. Default false. */
+  autoSelectFirst?: boolean;
 }
 
 export function useBookEntrySelection({
@@ -18,6 +20,7 @@ export function useBookEntrySelection({
   syncUrl,
   urlMode,
   basePath,
+  autoSelectFirst = false,
 }: UseBookEntrySelectionOptions): [string | null, (id: string) => void] {
   const urlOptions = useMemo(
     () => ({ mode: urlMode, basePath }),
@@ -62,11 +65,14 @@ export function useBookEntrySelection({
         if (syncUrl) writeEntryToUrl(current, urlOptions);
         return current;
       }
-      const fallback = entryIds[0] ?? null;
-      if (syncUrl && fallback) writeEntryToUrl(fallback, urlOptions);
-      return fallback;
+      if (autoSelectFirst) {
+        const fallback = entryIds[0] ?? null;
+        if (syncUrl && fallback) writeEntryToUrl(fallback, urlOptions);
+        return fallback;
+      }
+      return null;
     });
-  }, [entryIdsKey, syncUrl, urlOptions, entryIds]);
+  }, [entryIdsKey, syncUrl, urlOptions, entryIds, autoSelectFirst]);
 
   const selectEntry = useCallback(
     (id: string) => {

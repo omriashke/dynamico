@@ -1,6 +1,6 @@
 {
   "name": "@omriashke/dynamico-registry",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Reference registry for dynamico: compiles tsx, stores versions, broadcasts updates over WebSocket.",
   "license": "Apache-2.0",
   "type": "module",
@@ -43,6 +43,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test test/compile.test.mjs",
     "dev": "tsx watch src/bin.ts",
     "start": "node dist/bin.js"
   },
