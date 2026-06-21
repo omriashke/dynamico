@@ -7,7 +7,7 @@ import * as esbuild from "esbuild";
 import type { CompiledModule, Diagnostic } from "@omriashke/dynamico-core";
 import { typecheck } from "./typecheck.js";
 import { appendPlainEsbuildExports } from "@omriashke/dynamico-core";
-import { validateRelativeImports } from "./relativeImports.js";
+import { validateRelativeImports } from "@omriashke/dynamico-core";
 
 const requireFromHere = createRequire(import.meta.url);
 const presetEnv = requireFromHere.resolve("@babel/preset-env");
@@ -19,8 +19,6 @@ export interface CompileContext {
   absSourcePath?: string;
   /** Flat registry component names; relative imports to these stay external at runtime. */
   registeredComponents?: ReadonlySet<string>;
-  /** Co-located tests import `./Component` — skip RELATIVE_IMPORT gate for them. */
-  skipRelativeImportGate?: boolean;
 }
 
 /**
@@ -54,9 +52,7 @@ export async function compile(
       code = await babelOnly(name, source, ext);
     }
 
-    const relCheck = context?.skipRelativeImportGate
-      ? { ok: true as const }
-      : validateRelativeImports(code, registered, name);
+    const relCheck = validateRelativeImports(code, registered, name);
     if (!relCheck.ok) {
       return errorModule(
         name,

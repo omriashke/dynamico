@@ -1,5 +1,4 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { createHash } from 'node:crypto';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Fastify from 'fastify';
@@ -98,8 +97,4 @@ export async function createBookServer(options: BookServerOptions = {}) {
 
   await app.listen({ port, host });
   return app;
-}
-
-export function configEtag(body: string): string {
-  return `"${createHash('md5').update(body).digest('hex')}"`;
 }

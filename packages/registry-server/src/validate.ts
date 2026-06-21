@@ -2,7 +2,7 @@ import { Worker } from "node:worker_threads";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import type { CompiledModule, Diagnostic, BookPreviewConfig } from "@omriashke/dynamico-core";
-import { readBookPreviewConfig } from "./bookValidate.js";
+import { readBookPreviewConfigSync } from "@omriashke/dynamico-core/node";
 
 const VALIDATE_TIMEOUT_MS_DEFAULT = 5000;
 
@@ -21,14 +21,14 @@ export interface ValidateResult {
 }
 
 export interface ValidatePolicy {
-  /** Set DYNAMICO_VALIDATE_SKIP=1 (or legacy DYNAMICO_TEST_SKIP=1) on the registry. */
+  /** Set DYNAMICO_VALIDATE_SKIP=1 on the registry. */
   skipValidation?: boolean;
   allowedScope?: readonly string[];
   registeredComponents?: readonly string[];
 }
 
 export function loadPolicyFromEnv(): ValidatePolicy {
-  const v = process.env.DYNAMICO_VALIDATE_SKIP ?? process.env.DYNAMICO_TEST_SKIP;
+  const v = process.env.DYNAMICO_VALIDATE_SKIP;
   return { skipValidation: v === "1" || v === "true" };
 }
 
@@ -48,7 +48,7 @@ export async function validate(
     return { ok: true, component: input.component };
   }
 
-  const bookConfig = input.sourceDir ? readBookPreviewConfig(input.sourceDir) : undefined;
+  const bookConfig = input.sourceDir ? readBookPreviewConfigSync(input.sourceDir) : undefined;
 
   const result = await runInWorker({
     name: input.name,

@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 /**
- * Local push-gate regression: simulates production registry (NODE_ENV=production
- * parent) with the validateWorker NODE_ENV=development fix.
+ * Local push-gate regression: exercises validateWorker + runValidate (auto-validate).
  */
 import { Worker } from "node:worker_threads";
 import { fileURLToPath } from "node:url";
@@ -17,7 +16,6 @@ const CASES = [
   {
     name: "ProfileScreen (good)",
     component: `${NEWSCAST}/dynamico/expo/screens/ProfileScreen.tsx`,
-    test: `${NEWSCAST}/dynamico/expo/screens/ProfileScreen.test.tsx`,
     allowedScope: [
       "@newscast/utils-app-ui",
       "@newscast/app-auth",
@@ -30,14 +28,12 @@ const CASES = [
   {
     name: "TopicChip",
     component: `${NEWSCAST}/dynamico/expo/ui/TopicChip/TopicChip.tsx`,
-    test: `${NEWSCAST}/dynamico/expo/ui/TopicChip/TopicChip.test.tsx`,
     allowedScope: ["@newscast/utils-app-ui"],
     expectOk: true,
   },
   {
     name: "ProfileScreen (broken currentColors)",
     component: "/tmp/registry-pull/ProfileScreen.tsx",
-    test: `${NEWSCAST}/dynamico/expo/screens/ProfileScreen.test.tsx`,
     allowedScope: [
       "@newscast/utils-app-ui",
       "@newscast/app-auth",
@@ -75,21 +71,15 @@ async function runInWorker(input) {
 
 async function runCase(testCase) {
   const componentSource = readFileSync(testCase.component, "utf8");
-  const testSource = readFileSync(testCase.test, "utf8");
   const compiled = await compile(testCase.name, componentSource);
-  const compiledTest = await compile(`${testCase.name}.test`, testSource);
 
   if (compiled.error || !compiled.code) {
     throw new Error(`${testCase.name}: component compile failed: ${compiled.error?.message}`);
-  }
-  if (compiledTest.error || !compiledTest.code) {
-    throw new Error(`${testCase.name}: test compile failed: ${compiledTest.error?.message}`);
   }
 
   const result = await runInWorker({
     name: testCase.name.replace(/ \(.*\)$/, ""),
     componentCode: compiled.code,
-    testCode: compiledTest.code,
     timeoutMs: 8000,
     allowedScope: testCase.allowedScope,
   });

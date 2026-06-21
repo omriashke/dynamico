@@ -2,12 +2,13 @@ import chokidar from "chokidar";
 import { readFile } from "node:fs/promises";
 import { basename, extname, resolve } from "node:path";
 
+import { isComponentTestFilename } from "@omriashke/dynamico-core";
+
 export interface DevOptions {
   dir: string;
   registryUrl: string;
 }
 
-const TEST_RE = /\.test\.(tsx|jsx|ts|js)$/;
 
 export async function dev(opts: DevOptions): Promise<void> {
   const dir = resolve(opts.dir);
@@ -50,7 +51,7 @@ export async function dev(opts: DevOptions): Promise<void> {
   };
 
   const onChange = async (file: string) => {
-    if (TEST_RE.test(file)) return;
+    if (isComponentTestFilename(file)) return;
     await upload(file);
   };
 

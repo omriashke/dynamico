@@ -1,8 +1,9 @@
 import { readFile, readdir } from "node:fs/promises";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import type { Diagnostic } from "@omriashke/dynamico-core";
+import { MANIFEST_FILENAME, isComponentTestFilename } from "@omriashke/dynamico-core";
 import { upload, type ClientOptions } from "../client.js";
-import { validateBookConfigAtDir, readBookConfigFile } from "../bookConfigValidate.js";
+import { validateBookConfigAtDir, readBookConfigFileAsync } from "../bookConfigValidate.js";
 import { flagBool, flagString, resolveCommon } from "../args.js";
 import { emit, fail, formatDiagnostic } from "../output.js";
 
@@ -13,12 +14,7 @@ import { emit, fail, formatDiagnostic } from "../output.js";
 const SOURCE_EXTS = [".tsx", ".jsx", ".ts", ".js"] as const;
 type SourceExt = (typeof SOURCE_EXTS)[number];
 
-const MANIFEST_NAME = "dynamico.config.json";
-
-/** Legacy `*.test.*` files are ignored during disk walks — not registry components. */
-function isTestFilename(filename: string): boolean {
-  return /\.test\.(tsx|jsx|ts|js)$/.test(filename);
-}
+const MANIFEST_NAME = MANIFEST_FILENAME;
 
 export interface PushArgs {
   positional: string[];
@@ -202,7 +198,7 @@ async function pushDir(client: ClientOptions, dir: string, dryRun: boolean, json
     fail(json, { error: "book.config.json validation failed", issues: bookIssues }, lines, 3);
   }
 
-  const bookConfig = await readBookConfigFile(root);
+  const bookConfig = await readBookConfigFileAsync(root);
 
   const { status, data } = await upload(
     client,
@@ -303,7 +299,7 @@ async function collectNames(root: string): Promise<Set<string>> {
       }
       if (!e.isFile()) continue;
       if (e.name === MANIFEST_NAME) continue;
-      if (isTestFilename(e.name)) continue;
+      if (isComponentTestFilename(e.name)) continue;
       const ext = extname(e.name);
       if (!SOURCE_EXTS.includes(ext as SourceExt)) continue;
       out.add(basename(e.name, ext));

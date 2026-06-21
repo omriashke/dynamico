@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import type { DynamicError } from '@omriashke/dynamico-web';
 import { DynamicComponent } from '@omriashke/dynamico-web';
-import { resolveBookFixtures } from './fixtures.js';
+import { resolveBookFixtures } from '@omriashke/dynamico-core';
 import type { BookBlock, BookBlockItem, BookEntry, JsonObject, JsonValue } from './types.js';
 
 export function resolveFixtures(

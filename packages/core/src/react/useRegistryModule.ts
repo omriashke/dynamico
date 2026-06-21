@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
-import type { RegistryModuleSubscription } from "@omriashke/dynamico-core";
+import type { RegistryModuleSubscription } from "../registryModule.js";
 
-/** React hook that re-renders when a registry data module (e.g. Colors) is pushed. */
+/** React hook factory — re-renders when a registry data module (e.g. Colors) is pushed. */
 export function createUseRegistryModule<T extends Record<string, unknown>>(
   subscription: RegistryModuleSubscription<T>,
 ): () => T {

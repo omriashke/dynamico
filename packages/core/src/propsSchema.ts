@@ -43,3 +43,38 @@ function describe(v: unknown): string {
   if (typeof v === "function") return "function";
   return typeof v;
 }
+
+/** Parse `export const propsSchema = { … }` from component source text. */
+export function extractPropsSchema(source: string): PropsSchema | undefined {
+  const marker = "export const propsSchema";
+  const idx = source.indexOf(marker);
+  if (idx < 0) return undefined;
+
+  const after = source.slice(idx + marker.length);
+  const eq = after.indexOf("=");
+  if (eq < 0) return undefined;
+
+  let rest = after.slice(eq + 1).trimStart();
+  if (!rest.startsWith("{")) return undefined;
+
+  let depth = 0;
+  let end = 0;
+  for (let i = 0; i < rest.length; i++) {
+    const ch = rest[i];
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) {
+        end = i + 1;
+        break;
+      }
+    }
+  }
+  if (end === 0) return undefined;
+
+  try {
+    return new Function(`return (${rest.slice(0, end)})`)() as PropsSchema;
+  } catch {
+    return undefined;
+  }
+}

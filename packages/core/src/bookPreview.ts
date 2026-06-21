@@ -3,6 +3,13 @@ import type { PropsSchema } from "./types.js";
 
 export type BookPreviewJson = Record<string, unknown>;
 
+/** Filenames recognized as Dynamico Book catalog configs on disk. */
+export const BOOK_CONFIG_FILENAMES = ["book.config.json", "storybook.config.json"] as const;
+
+export function isBookConfigFilename(name: string): boolean {
+  return (BOOK_CONFIG_FILENAMES as readonly string[]).includes(name);
+}
+
 export interface BookPreviewConfig {
   fixtures?: Record<string, BookPreviewJson>;
   /** Registry components wrapping every preview (outermost last). */

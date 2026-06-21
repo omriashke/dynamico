@@ -4,7 +4,8 @@ import cors from "@fastify/cors";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join, extname } from "node:path";
-import type { CompiledModule } from "@omriashke/dynamico-core";
+import { BOOK_CONFIG_FILENAMES, type CompiledModule } from "@omriashke/dynamico-core";
+import { bookConfigPathSync } from "@omriashke/dynamico-core/node";
 import { Store } from "./store.js";
 import { compile } from "./compile.js";
 import { registerAuth, type AuthOptions } from "./auth.js";
@@ -57,11 +58,7 @@ async function persistBookConfig(
 }
 
 function bookConfigPath(sourceDir: string): string | null {
-  for (const name of ["book.config.json", "storybook.config.json"]) {
-    const filePath = join(sourceDir, name);
-    if (existsSync(filePath)) return filePath;
-  }
-  return null;
+  return bookConfigPathSync(sourceDir);
 }
 
 function serveBookConfig(sourceDir: string, req: FastifyRequest, reply: FastifyReply) {

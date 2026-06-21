@@ -13,7 +13,7 @@ export {
   resolvePropsForLiveComponent,
   wrapBookProviders,
 } from './render.js';
-export { resolveBookFixtures } from './fixtures.js';
+export { resolveBookFixtures } from '@omriashke/dynamico-core';
 export type {
   BookAuthOptions,
   BookBlock,

@@ -1,6 +1,7 @@
 import { createElement, useSyncExternalStore, type ComponentType } from "react";
 import type { CompiledModule, Scope, Source } from "./types.js";
 import { loadModule } from "./loader.js";
+import { resolveRelativeComponentName } from "./relativeRequires.js";
 
 export interface PackageScopeOptions {
   /** Registry component names (export name = registry name). */
@@ -83,11 +84,7 @@ export function createPackageScope(
   let makeLazy: (name: string) => LazyComponent;
 
   const requireRelative = (specifier: string): unknown => {
-    const base = specifier
-      .replace(/^\.+\//, "")
-      .replace(/\.[tj]sx?$/, "")
-      .split("/")
-      .pop();
+    const base = resolveRelativeComponentName(specifier);
     if (!base) throw new Error(`dynamico: cannot resolve '${specifier}'`);
     ensureLoaded(base);
     const dep = modules.get(base)?.factory;

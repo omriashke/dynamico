@@ -2,6 +2,8 @@ import { readFile, rename, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
+import { MANIFEST_FILENAME } from "@omriashke/dynamico-core";
+
 /**
  * Shape of `dynamico.config.json` on disk. Kept deliberately small; extend
  * with additional metadata (tags, author, etc.) in a future manifest
@@ -20,7 +22,7 @@ export interface ManifestEntry {
 }
 
 /** Current manifest filename. */
-export const MANIFEST_NAME = "dynamico.config.json";
+export const MANIFEST_NAME = MANIFEST_FILENAME;
 
 /**
  * In-memory representation of the manifest, with read-through + atomic write.

@@ -3,11 +3,12 @@ import { mkdir, readFile, readdir, unlink, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { basename, dirname, extname, join, relative, resolve, sep } from "node:path";
 import type { CompiledModule } from "@omriashke/dynamico-core";
+import { isComponentTestFilename } from "@omriashke/dynamico-core";
+import { isBookConfigPath } from "@omriashke/dynamico-core/node";
 import { compile } from "./compile.js";
 import { Manifest, MANIFEST_NAME, type ManifestFile } from "./manifest.js";
 import type { Store } from "./store.js";
 import { loadPolicyFromEnv, validate } from "./validate.js";
-import { isBookConfigPath } from "./bookValidate.js";
 import type { ScopeCache } from "./scopeCache.js";
 
 /**
@@ -362,7 +363,7 @@ export class FilesystemSourceStore {
         const ext = extname(e.name);
         if (!SOURCE_EXTS.includes(ext as SourceExt)) continue;
         // Legacy *.test.* files are not registry components — ignore them.
-        if (isTestFilename(e.name)) continue;
+        if (isComponentTestFilename(e.name)) continue;
         const name = basename(e.name, ext);
         if (out.has(name)) {
           (collisions[name] ??= [out.get(name)!]).push(childRel);
@@ -432,7 +433,7 @@ export class FilesystemSourceStore {
     const ext = extname(rel);
     if (!SOURCE_EXTS.includes(ext as SourceExt)) return;
 
-    if (isTestFilename(basename(rel))) return;
+    if (isComponentTestFilename(basename(rel))) return;
 
     const name = basename(rel, ext);
     const existing = this.manifest.get(name);
@@ -509,13 +510,6 @@ export class FilesystemSourceStore {
       });
     });
   }
-}
-
-/**
- * Legacy `*.test.*` files are not registry components — ignored during scans.
- */
-export function isTestFilename(filename: string): boolean {
-  return /\.test\.(tsx|jsx|ts|js)$/.test(filename);
 }
 
 function validateName(name: string): void {

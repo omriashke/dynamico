@@ -46,7 +46,7 @@
     "react-native": "*"
   },
   "dependencies": {
-    "@omriashke/dynamico-core": "0.1.10"
+    "@omriashke/dynamico-core": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "^18.3.0",

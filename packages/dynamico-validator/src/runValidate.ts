@@ -5,6 +5,7 @@ import {
   generateDefaultProps,
   collectBookPreviewPropSets,
   normalizeBookPreviewConfig,
+  resolveRelativeComponentName,
   type Scope,
   type PropsSchema,
   type BookPreviewConfig,
@@ -71,18 +72,6 @@ const BUILT_IN_SCOPE: Scope = {
     DynamicoProvider: DynamicoProviderStub,
   },
 };
-
-function resolveRelativeComponentName(specifier: string): string | null {
-  if (!specifier.startsWith("./") && !specifier.startsWith("../") && !specifier.startsWith("/")) {
-    return null;
-  }
-  const base = specifier
-    .replace(/^\.+\//, "")
-    .replace(/\.[tj]sx?$/, "")
-    .split("/")
-    .pop();
-  return base || null;
-}
 
 function makeStubModule(name: string): unknown {
   const noop = () => makeStubModule(`${name}()`);

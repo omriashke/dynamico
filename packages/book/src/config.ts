@@ -1,8 +1,8 @@
 import type { BookConfig, BookEntry, BookSidebarSection } from './types.js';
+import { normalizeBookPreviewConfig } from '@omriashke/dynamico-core';
 
 export function normalizeBookConfig(raw: BookConfig): BookConfig {
-  const entries = raw.entries ?? raw.stories ?? [];
-  return { ...raw, entries };
+  return normalizeBookPreviewConfig(raw) as BookConfig;
 }
 
 export function sidebarSections(config: BookConfig): BookSidebarSection[] {

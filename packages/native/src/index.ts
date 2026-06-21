@@ -31,8 +31,8 @@ export {
   createPackageScope,
   createPackageScopeFromNames,
   createRegistryModuleSubscription,
+  createUseRegistryModule,
 } from "@omriashke/dynamico-core";
-export { createUseRegistryModule } from "./useRegistryModule.js";
 export type {
   Source,
   CompiledModule,
