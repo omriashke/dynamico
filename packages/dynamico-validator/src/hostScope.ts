@@ -5,50 +5,6 @@ import {
   createAnimationModule,
 } from "./registryStubs.js";
 
-const THEME_COLORS = {
-  primary: "#F53071",
-  secondary: "#FFF5F5",
-  background: "#FFFFFF",
-  surface: "#F8F9FA",
-  text: "#2F2F2F",
-  textSecondary: "rgba(0,0,0,0.5)",
-  white: "#FFFFFF",
-  black: "#000000",
-  disabled: "#E0E0E0",
-  grey: "rgba(0,0,0,0.25)",
-  border: "rgba(0,0,0,0.1)",
-  placeholder: "rgba(0,0,0,0.4)",
-};
-
-const LIGHT_THEME = {
-  id: "light" as const,
-  name: "Light",
-  colors: THEME_COLORS,
-  variants: {
-    light: THEME_COLORS,
-    dark: { ...THEME_COLORS, background: "#121212", surface: "#1E1E1E", text: "#FFFFFF" },
-  },
-};
-
-function makeThemeContext() {
-  return {
-    theme: LIGHT_THEME,
-    themeId: "light" as const,
-    themeMode: "light" as const,
-    setTheme: async () => undefined,
-    setThemeId: async () => undefined,
-    setThemeMode: async () => undefined,
-    toggleTheme: () => undefined,
-    toggleThemeMode: () => undefined,
-    isDark: false,
-    currentColors: THEME_COLORS,
-    colors: THEME_COLORS,
-    availableThemes: [LIGHT_THEME],
-    availablePersonas: [] as string[],
-    personaNames: {} as Record<string, string>,
-  };
-}
-
 function createHostStub(): Record<string, unknown> {
   const secureStore = {
     getItemAsync: async () => null,
@@ -82,21 +38,22 @@ function createHostStub(): Record<string, unknown> {
 }
 
 function createUiPackageStub(): Record<string, unknown> {
-  const themeCtx = makeThemeContext();
   const colors = createColorsModule();
   const animation = createAnimationModule();
   const themeModule = createThemeProviderModule();
+  const themeColors = (colors.Colors ?? colors.default) as Record<string, string>;
+  const lightTheme = { id: "light" as const, name: "Light", colors: themeColors };
   return {
     ...colors,
     ...animation,
     ...themeModule,
-    useColors: () => THEME_COLORS,
+    useColors: () => themeColors,
     useTheme: themeModule.useTheme,
     useAppTheme: themeModule.useAppTheme,
-    lightTheme: LIGHT_THEME,
-    darkTheme: LIGHT_THEME,
-    ALL_THEMES: [LIGHT_THEME],
-    getThemeById: () => LIGHT_THEME,
+    lightTheme,
+    darkTheme: lightTheme,
+    ALL_THEMES: [lightTheme],
+    getThemeById: () => lightTheme,
     PERSONA_IDS: [] as string[],
     PERSONA_NAMES: {} as Record<string, string>,
     ThemeProvider: themeModule.ThemeProvider,
@@ -110,8 +67,8 @@ function createUiPackageStub(): Record<string, unknown> {
 export function validationHostScope(allowedScope?: readonly string[]): Scope {
   if (!allowedScope?.length) return {};
   const scope: Scope = {};
-  const themeCtx = makeThemeContext();
   const uiPkg = createUiPackageStub();
+  const themeModule = createThemeProviderModule();
 
   for (const key of allowedScope) {
     if (key === "@dynamico/ui" || key === "@newscast/utils-app-ui") {
@@ -130,7 +87,7 @@ export function validationHostScope(allowedScope?: readonly string[]): Scope {
           clearError: () => undefined,
           error: null,
         }),
-        useAppTheme: () => themeCtx,
+        useAppTheme: themeModule.useAppTheme,
         ThemeProvider: uiPkg.ThemeProvider,
         AuthProvider: ({ children }: { children: unknown }) => children,
       };

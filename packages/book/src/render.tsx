@@ -20,7 +20,7 @@ function resolvePropValue(value: JsonValue, fixtures: Record<string, JsonObject>
     return () => undefined;
   }
   if ('$component' in value && typeof value.$component === 'string') {
-    const nestedProps = resolveFixtures((value.props as JsonObject | undefined) ?? {}, fixtures);
+    const nestedProps = resolveBookFixtures((value.props as JsonObject | undefined) ?? {}, fixtures) as JsonObject;
     return (
       <LiveComponent
         name={value.$component}
@@ -77,7 +77,7 @@ function ComponentItem({
   item: BookBlockItem;
   fixtures: Record<string, JsonObject>;
 }) {
-  const props = resolveFixtures(item.props, fixtures);
+  const props = resolveBookFixtures(item.props, fixtures) as JsonObject;
   return (
     <LiveComponent name={item.component} props={resolvePropsForLiveComponent(props, fixtures)} />
   );
@@ -128,7 +128,7 @@ function BlockView({
       return (
         <div className="db-variant-grid">
           {block.variants.map((variant) => {
-            const props = resolveFixtures(variant.props, fixtures);
+            const props = resolveBookFixtures(variant.props, fixtures) as JsonObject;
             return (
               <div key={variant.id} className="db-variant-row">
                 <span className="db-variant-label">{variant.id}</span>
