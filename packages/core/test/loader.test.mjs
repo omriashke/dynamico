@@ -4,9 +4,14 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { loadModule, resolveModuleDefault } from "../dist/loader.js";
+import { appendPlainEsbuildExports } from "../dist/esbuildFlatten.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixture = readFileSync(join(__dirname, "fixtures/esbuild-getter-bundle.js"), "utf8");
+const namedFixture = readFileSync(
+  join(__dirname, "fixtures/esbuild-named-exports-bundle.js"),
+  "utf8",
+);
 
 /** Legacy registry bundles end with a failed plain assignment (getter-only default). */
 const legacyRegistryTail =
@@ -37,4 +42,12 @@ test("resolveModuleDefault reads function export directly", () => {
   function Demo() {}
   assert.equal(resolveModuleDefault(Demo), Demo);
   assert.equal(resolveModuleDefault({ default: Demo }), Demo);
+});
+
+test("loadModule exposes named exports after flatten (Colors.primary at init)", () => {
+  const flat = appendPlainEsbuildExports(namedFixture);
+  const factory = loadModule(flat, {}, () => ({}));
+  assert.equal(factory.Colors?.black, "#000000");
+  assert.equal(factory.DEFAULT_COLORS?.primary, "#F53071");
+  assert.equal(typeof resolveModuleDefault(factory), "function");
 });

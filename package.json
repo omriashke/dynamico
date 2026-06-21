@@ -6,7 +6,7 @@
   "packageManager": "pnpm@10.30.3",
   "scripts": {
     "build": "pnpm -r --filter \"./packages/*\" build",
-    "test": "pnpm --filter @omriashke/dynamico-core test && pnpm --filter @omriashke/dynamico-registry test",
+    "test": "pnpm --filter @omriashke/dynamico-core test && pnpm --filter @omriashke/dynamico-registry test && pnpm --filter @omriashke/dynamico-book test && pnpm --filter @omriashke/dynamico-validator test",
     "dev:registry": "pnpm --filter @omriashke/dynamico-registry dev",
     "dev:cli": "pnpm --filter @omriashke/dynamico-cli dev",
     "dev:web": "pnpm --filter web-host dev",

@@ -58,10 +58,12 @@ export function createRemoteSource(options: RemoteSourceOptions): Source {
   let pendingWatchSync = false;
   const reconnectMs = options.reconnectMs ?? 1000;
   const useWebSocket = options.webSocket !== false;
+  const WS_OPEN = (WSCtor as unknown as { OPEN?: number }).OPEN ?? 1;
+  const WS_CONNECTING = (WSCtor as unknown as { CONNECTING?: number }).CONNECTING ?? 0;
 
   function pushWatchSet(): void {
     if (!useWebSocket || watchedNames.size === 0) return;
-    if (!socket || socket.readyState !== WebSocket.OPEN) {
+    if (!socket || socket.readyState !== WS_OPEN) {
       pendingWatchSync = true;
       connect();
       return;
@@ -76,7 +78,7 @@ export function createRemoteSource(options: RemoteSourceOptions): Source {
 
   function connect(): void {
     if (disposed || !useWebSocket || watchedNames.size === 0) return;
-    if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+    if (socket && (socket.readyState === WS_OPEN || socket.readyState === WS_CONNECTING)) {
       return;
     }
     try {

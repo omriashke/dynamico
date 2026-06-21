@@ -198,7 +198,7 @@ importers:
   packages/native:
     dependencies:
       '@omriashke/dynamico-core':
-        specifier: workspace:*
+        specifier: 0.1.10
         version: link:../core
     devDependencies:
       '@types/react':
@@ -262,6 +262,9 @@ importers:
       tsx:
         specifier: ^4.19.0
         version: 4.21.0
+      ws:
+        specifier: ^8.18.0
+        version: 8.20.0
 
   packages/web:
     dependencies:

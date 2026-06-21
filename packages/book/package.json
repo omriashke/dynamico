@@ -35,7 +35,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json && tsc -p tsconfig.server.json",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.server.json --noEmit",
-    "dev": "tsc -p tsconfig.json -w"
+    "dev": "tsc -p tsconfig.json -w",
+    "test": "npm run build && node --test test/*.test.mjs"
   },
   "peerDependencies": {
     "@omriashke/dynamico-web": ">=0.1.0",
