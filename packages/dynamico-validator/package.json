@@ -1,6 +1,6 @@
 {
   "name": "@omriashke/dynamico-validator",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "description": "Server-side validator for Dynamico components. Automatically renders each pushed component with default props and book.config.json previews (with providers) in a worker thread; rejects pushes that throw or miss scope bindings.",
   "license": "Apache-2.0",
   "type": "module",

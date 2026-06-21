@@ -1,6 +1,6 @@
 {
   "name": "@omriashke/dynamico-web",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Dynamico runtime for React DOM: Provider, DynamicComponent, and the web default scope.",
   "license": "Apache-2.0",
   "type": "module",

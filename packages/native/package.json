@@ -1,6 +1,6 @@
 {
   "name": "@omriashke/dynamico-native",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Dynamico runtime for React Native / Expo: Provider, DynamicComponent, and the native default scope.",
   "license": "Apache-2.0",
   "type": "module",
