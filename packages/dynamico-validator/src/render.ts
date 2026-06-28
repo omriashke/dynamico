@@ -39,11 +39,22 @@ function assertNoRenderError(phase: string): void {
   }
 }
 
+function formatConsoleArg(a: unknown): string {
+  if (a instanceof Error) return a.message;
+  if (typeof a === "string") return a;
+  if (typeof a === "number" || typeof a === "boolean" || a == null) return String(a);
+  try {
+    return JSON.stringify(a);
+  } catch {
+    return Object.prototype.toString.call(a);
+  }
+}
+
 function captureReactRenderErrors<T>(fn: () => T): T {
   const errors: string[] = [];
   const origError = console.error;
   console.error = (...args: unknown[]) => {
-    const msg = args.map((a) => (a instanceof Error ? a.message : String(a))).join(" ");
+    const msg = args.map(formatConsoleArg).join(" ");
     if (
       msg.includes("An error occurred in the") ||
       msg.includes("ReferenceError") ||
