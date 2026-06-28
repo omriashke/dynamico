@@ -2,7 +2,7 @@
  * Playwright smoke test: Book Button preview should have pink primary background.
  * Requires book-host dev (default :6006) with fixed @omriashke/dynamico-core linked.
  *
- *   DYNAMICO_REGISTRY_PROXY=https://dev.newscast.info cd examples/book-host && pnpm dev
+ *   DYNAMICO_REGISTRY_PROXY=http://127.0.0.1:4000 cd examples/book-host && pnpm dev
  *   node ../../packages/core/scripts/test-book-colors.mjs
  */
 import { chromium } from "playwright";

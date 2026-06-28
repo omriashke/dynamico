@@ -43,23 +43,20 @@ Runtime settings are environment variables, exposed to the browser via
 
 ## Build & publish
 
-Multi-arch (`linux/amd64` + `linux/arm64`) via Cloud Build:
+Multi-arch (`linux/amd64` + `linux/arm64`) via **Docker Build Cloud** (`docker buildx`):
 
 ```bash
 cd dynamico
-gcloud builds submit --config packages/book/cloudbuild.yaml .
-```
-
-Local multi-arch push (requires buildx + QEMU):
-
-```bash
-docker buildx create --name dynamico-builder --use
+docker buildx use "${DOCKER_BUILDX_BUILDER:?set to your cloud builder from docker buildx ls}"
 docker buildx build --platform linux/amd64,linux/arm64 \
   -f packages/book/Dockerfile \
   -t omriashkenazi/dynamico-book:0.1.2 \
   -t omriashkenazi/dynamico-book:latest \
   --push .
 ```
+
+List builders: `docker buildx ls` (Docker Build Cloud entries are named `cloud-<org>-<name>`).
+Local container builders work for single-platform builds; cross-arch on Apple Silicon can flake under QEMU.
 
 ## License
 

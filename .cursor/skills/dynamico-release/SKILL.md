@@ -48,13 +48,6 @@ Edit `version` in each changed package (dependency order matters for publish):
 | `@omriashke/dynamico-registry` | `packages/registry-server/package.json` | `0.1.9` |
 | `@omriashke/dynamico-book` | `packages/book/package.json` | only if book changed |
 
-Update Docker Cloud Build tags in `packages/registry-server/cloudbuild.yaml`:
-
-```yaml
---tag omriashkenazi/dynamico-registry:0.1.9
---tag omriashkenazi/dynamico-registry:latest
-```
-
 Rebuild after bumps:
 
 ```bash
@@ -107,19 +100,19 @@ dynamico --version
 
 ## 3. Build and push Docker image
 
-**Option A — Cloud Build (recommended, multi-arch):**
+Use **Docker Build Cloud** via `docker buildx` (or any multi-arch builder). List
+builders with `docker buildx ls`; pick one that supports `linux/amd64` and
+`linux/arm64` (Docker Build Cloud builders are named `cloud-<org>-<name>`).
 
 ```bash
-cd ~/Development/dynamico
-gcloud builds submit --config packages/registry-server/cloudbuild.yaml .
+docker buildx use "${DOCKER_BUILDX_BUILDER:?set to your cloud builder from docker buildx ls}"
 ```
 
-**Option B — local buildx:**
+**Registry image:**
 
 ```bash
 cd ~/Development/dynamico
-docker buildx create --name dynamico-builder --use 2>/dev/null || docker buildx use dynamico-builder
-docker buildx inspect --bootstrap
+docker buildx use "${DOCKER_BUILDX_BUILDER:?set to your cloud builder}"
 
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
@@ -130,42 +123,47 @@ docker buildx build \
   .
 ```
 
-Book image (only when book package changed):
+**Book image** (only when book package changed):
 
 ```bash
+cd ~/Development/dynamico
+docker buildx use "${DOCKER_BUILDX_BUILDER:?set to your cloud builder}"
+
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
-  -f packages/book/Dockerfile \
-  -t omriashkenazi/dynamico-book:0.1.3 \
-  -t omriashkenazi/dynamico-book:latest \
+  --file packages/book/Dockerfile \
+  --tag omriashkenazi/dynamico-book:0.1.3 \
+  --tag omriashkenazi/dynamico-book:latest \
   --push \
   .
 ```
 
-## 4. Redeploy on dev server
-
-Dev host: `116.202.18.167` · compose dir: `/home/newscast/app`
+Local-only fallback (single platform, no push):
 
 ```bash
-ssh root@116.202.18.167 <<'EOF'
-cd /home/newscast/app
+docker buildx build \
+  --platform linux/arm64 \
+  --file packages/registry-server/Dockerfile \
+  --tag omriashkenazi/dynamico-registry:dev \
+  --load \
+  .
+```
+
+## 4. Redeploy
+
+On the host running your registry (compose, k8s, etc.):
+
+```bash
 docker compose pull dynamico-registry
 docker compose up -d --no-deps dynamico-registry
 docker compose ps dynamico-registry
-EOF
 ```
 
-Verify new auto-validate (not legacy `runTest`):
+Verify auto-validate is active (not legacy `runTest`):
 
 ```bash
-ssh root@116.202.18.167 \
-  'docker exec app_dynamico-registry_1 grep runValidate /app/dist/validateWorker.js'
-```
-
-Registry health:
-
-```bash
-curl -sS https://dev.newscast.info/api/dynamico/health
+docker exec <registry-container> grep runValidate /app/dist/validateWorker.js
+curl -sS http://localhost:4000/health
 ```
 
 ## 5. Commit and push (git)
@@ -213,14 +211,14 @@ dynamico skill install --target ~/Development/dynamico/.cursor/skills/dynamico-c
 
 Reload Cursor window after installing skills.
 
-## Post-release smoke (dev registry)
+## Post-release smoke
 
 ```bash
-export DYNAMICO_REGISTRY=https://dev.newscast.info/api/dynamico
-export DYNAMICO_TOKEN=$(agent-secrets query "Dynamico component registry bearer token" | awk '/^value:/ {print $2}')
+export DYNAMICO_REGISTRY=http://localhost:4000
+export DYNAMICO_TOKEN=your-bearer-token   # if auth is enabled
 
 # Real push — NOT --dry-run (dry-run skips validation)
-dynamico push Colors --source ~/Development/newscast/dynamico/expo/ui/Colors/index.tsx
+dynamico push MyButton --source path/to/MyButton.tsx
 
 # Should fail scope check:
 dynamico push BadScope --source /tmp/BadScope.tsx  # import from unknown package
@@ -229,6 +227,6 @@ dynamico push BadScope --source /tmp/BadScope.tsx  # import from unknown package
 ## Notes
 
 - **`--dry-run` only compiles** — it does not run auto-validate.
-- **Docker `:latest` on dev** — compose uses `omriashkenazi/dynamico-registry:latest`; always push the `latest` tag with the version tag.
+- **Docker `:latest` on deploy** — if compose pins `omriashkenazi/dynamico-registry:latest`, always push the `latest` tag with the version tag.
 - **npm workspace** — publish from each `packages/*` directory, not the repo root (`private: true`).
 - **Legacy test files on registry disk** — optional cleanup after deploy: remove stale `*.test.tsx` under the registry volume; they are no longer used.

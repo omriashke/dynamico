@@ -1,11 +1,13 @@
 /**
- * Verify real dev registry bundles resolve Colors through relative imports.
+ * Verify a registry bundle resolves Colors through relative imports.
  * Uses a probe module that mirrors Button's module-level Colors read.
+ *
+ *   DYNAMICO_REGISTRY_URL=http://localhost:4000 node packages/core/scripts/test-live-button-bundle.mjs
  */
 import * as React from "react";
 import { Registry } from "../dist/registry.js";
 
-const registryUrl = process.env.DYNAMICO_REGISTRY_URL ?? "https://dev.newscast.info/api/dynamico";
+const registryUrl = process.env.DYNAMICO_REGISTRY_URL ?? "http://127.0.0.1:4000";
 
 async function fetchComponent(name) {
   const res = await fetch(`${registryUrl.replace(/\/$/, "")}/component/${name}`);

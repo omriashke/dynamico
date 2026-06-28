@@ -225,10 +225,29 @@ const source = createRemoteSource({
 
 ## Building from source
 
+Single-platform local build:
+
 ```bash
 git clone https://github.com/omriaskenazi/dynamico.git
 cd dynamico
 docker build -f packages/registry-server/Dockerfile -t omriashkenazi/dynamico-registry:dev .
+```
+
+## Build & publish (multi-arch)
+
+Use **Docker Build Cloud** (or any multi-arch builder). List builders with
+`docker buildx ls`; cloud builders are named `cloud-<org>-<name>`.
+
+```bash
+cd dynamico
+docker buildx use "${DOCKER_BUILDX_BUILDER:?set to your cloud builder}"
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  --file packages/registry-server/Dockerfile \
+  --tag omriashkenazi/dynamico-registry:VERSION \
+  --tag omriashkenazi/dynamico-registry:latest \
+  --push \
+  .
 ```
 
 The build is multi-stage:
