@@ -39,7 +39,7 @@ function assertNoRenderError(phase: string): void {
   }
 }
 
-function formatConsoleArg(a: unknown): string {
+export function formatConsoleArg(a: unknown): string {
   if (a instanceof Error) return a.message;
   if (typeof a === "string") return a;
   if (typeof a === "number" || typeof a === "boolean" || a == null) return String(a);
