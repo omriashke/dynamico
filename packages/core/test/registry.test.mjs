@@ -126,6 +126,87 @@ test("Registry notifies dependency subscribers when a relative import updates", 
   assert.ok(parentVersions.length >= 1);
 });
 
+test("Registry skips re-evaluation when WS pushes same version that is already loaded", async () => {
+  const source = mockSource({});
+  const registry = new Registry(source, { react: {} });
+
+  // Subscribe so the push is eligible for ingest.
+  const notifiedVersions = [];
+  registry.subscribe("Button", (entry) => notifiedVersions.push(entry.version));
+
+  // Push v1 — should evaluate and notify.
+  source.push({
+    name: "Button",
+    version: "v1",
+    code: "module.exports={default:function Button(){}}",
+  });
+  await new Promise((r) => setTimeout(r, 0));
+
+  const firstFactory = registry.peek("Button")?.factory;
+  assert.ok(firstFactory, "component should be loaded after first push");
+  assert.deepEqual(notifiedVersions, ["v1"]);
+
+  // Push the exact same version again (e.g. server replayed on WS reconnect).
+  source.push({
+    name: "Button",
+    version: "v1",
+    code: "module.exports={default:function Button(){}}",
+  });
+  await new Promise((r) => setTimeout(r, 0));
+
+  // Entry must be the SAME object reference — no re-eval means no new identity.
+  assert.strictEqual(
+    registry.peek("Button"),
+    registry.peek("Button"),
+    "peek should return the same entry object",
+  );
+  assert.strictEqual(
+    registry.peek("Button")?.factory,
+    firstFactory,
+    "factory should not be replaced when same version is pushed again",
+  );
+
+  // Listener must NOT have been called a second time.
+  assert.deepEqual(
+    notifiedVersions,
+    ["v1"],
+    "listener should not fire for a same-version push",
+  );
+});
+
+test("Registry re-evaluates and notifies when a genuinely new version is pushed", async () => {
+  const source = mockSource({});
+  const registry = new Registry(source, { react: {} });
+
+  const notifiedVersions = [];
+  registry.subscribe("Button", (entry) => notifiedVersions.push(entry.version));
+
+  source.push({
+    name: "Button",
+    version: "v1",
+    code: "module.exports={default:function Button_v1(){}}",
+  });
+  await new Promise((r) => setTimeout(r, 0));
+
+  const firstFactory = registry.peek("Button")?.factory;
+
+  // Push v2 — a real update from `dynamico push`.
+  source.push({
+    name: "Button",
+    version: "v2",
+    code: "module.exports={default:function Button_v2(){}}",
+  });
+  await new Promise((r) => setTimeout(r, 0));
+
+  assert.deepEqual(notifiedVersions, ["v1", "v2"], "listener should fire for a new version");
+  assert.notStrictEqual(
+    registry.peek("Button")?.factory,
+    firstFactory,
+    "factory should be replaced when a new version arrives",
+  );
+  assert.equal(registry.peek("Button")?.version, "v2");
+});
+
 test("Registry records removal events from the source", async () => {
   const source = mockSource({
     Button: { name: "Button", version: "1", code: "module.exports={default:function Button(){}}" },

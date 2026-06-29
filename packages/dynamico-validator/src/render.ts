@@ -63,7 +63,11 @@ function captureReactRenderErrors<T>(fn: () => T): T {
     ) {
       errors.push(msg);
     }
-    origError.apply(console, args as []);
+    try {
+      origError.apply(console, args.map(formatConsoleArg) as []);
+    } catch {
+      // Node's console can still throw on exotic args; validation uses `msg` above.
+    }
   };
   try {
     return fn();

@@ -100,3 +100,21 @@ test("runValidate fails book preview when render throws", async () => {
   assert.equal(result.error?.phase, "book");
   assert.match(result.error?.message ?? "", /label must be a string/);
 });
+
+test("runValidate stubs registered relative imports as React components", async () => {
+  const result = await runValidate({
+    name: "Parent",
+    componentCode: `
+      var React = require("react");
+      var RN = require("react-native");
+      var Child = require("./Child").default;
+      function Parent() {
+        return React.createElement(Child, { title: "nested" });
+      }
+      module.exports = { default: Parent };
+    `,
+    allowedScope: ["react", "react-native"],
+    registeredComponents: ["Child"],
+  });
+  assert.equal(result.ok, true);
+});

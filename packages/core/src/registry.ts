@@ -183,7 +183,10 @@ export class Registry {
       get(target, prop) {
         if (typeof prop !== "string") return undefined;
         const resolved = registry.resolveExport(name, prop);
-        if (resolved !== undefined) return resolved;
+        if (resolved !== undefined) {
+          delete target[prop];
+          return resolved;
+        }
         if (prop in target) return target[prop];
         const c = make(prop);
         target[prop] = c;
@@ -198,11 +201,26 @@ export class Registry {
   /**
    * Take a CompiledModule from the source, evaluate it (or record a compile
    * error), update the entry, and notify listeners.
+   *
+   * Same-version deduplication: if the current entry already carries this
+   * exact version (and has no error), skip re-evaluation entirely. This is the
+   * primary guard against the WebSocket connect-replay pattern where the server
+   * immediately pushes the current module for every watched component on every
+   * (re)connect — without this, each push produces a brand-new JS function
+   * object and React unmounts+remounts the entire component tree even though
+   * nothing changed, causing visible flicker and lost interaction state.
    */
   private async ingestAsync(
     name: string,
     module: import("./types.js").CompiledModule,
   ): Promise<RegistryEntry> {
+    if (!module.removed && !module.error) {
+      const current = this.entries.get(name);
+      if (current && !current.error && current.version === module.version) {
+        return current;
+      }
+    }
+
     if (module.removed) {
       this.entries.delete(name);
       this.lazyProxies.delete(name);

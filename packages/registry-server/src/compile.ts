@@ -128,9 +128,9 @@ async function bundleWithEsbuild(
     format: "cjs",
     platform: "neutral",
     write: false,
-    target: "es2020",
-    // Hermes cannot parse async functions inside `new Function()`-evaluated
-    // registry bundles — downlevel async/await even though the target is modern.
+    target: "es2015",
+    // Hermes cannot parse async/class syntax inside `new Function()`-evaluated
+    // registry bundles — downlevel async/await and ES6 classes.
     supported: { "async-await": false },
     jsx: "transform",
     jsxFactory: "React.createElement",

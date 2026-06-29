@@ -149,3 +149,18 @@ test("createRemoteSource webSocket:false skips watch side effects", async () => 
   assert.equal(MockWebSocket.instances.length, 0);
   release();
 });
+
+test("createRemoteSource enables WebSocket by default (webSocket option omitted)", async () => {
+  MockWebSocket.instances = [];
+  const source = createRemoteSource(remoteOptions()); // no webSocket key
+  const release = source.watch("Button");
+  await sleep(30);
+  assert.equal(
+    MockWebSocket.instances.length,
+    1,
+    "WebSocket should be opened by default when webSocket option is not set",
+  );
+  release();
+  source.dispose();
+  await sleep(20);
+});

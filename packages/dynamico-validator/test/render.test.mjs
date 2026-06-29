@@ -45,6 +45,36 @@ test("runValidate survives console.error object args during render (React 19)", 
   assert.equal(result.ok, true);
 });
 
+test("runValidate survives when native console.error throws on object args", async () => {
+  const orig = console.error;
+  console.error = (...args) => {
+    for (const a of args) {
+      if (a != null && typeof a === "object") {
+        throw new TypeError("Cannot convert object to primitive value");
+      }
+    }
+    orig.apply(console, args);
+  };
+  try {
+    const result = await runValidate({
+      name: "ObjLogNative",
+      componentCode: `
+        var React = require("react");
+        var RN = require("react-native");
+        function ObjLogNative() {
+          console.error("dev noise", { componentStack: " at ObjLogNative" });
+          return React.createElement(RN.Text, null, "ok");
+        }
+        module.exports = { default: ObjLogNative };
+      `,
+      allowedScope: ["react", "react-native"],
+    });
+    assert.equal(result.ok, true);
+  } finally {
+    console.error = orig;
+  }
+});
+
 test("runValidate still captures real render errors logged by React 19", async () => {
   const result = await runValidate({
     name: "Broken",

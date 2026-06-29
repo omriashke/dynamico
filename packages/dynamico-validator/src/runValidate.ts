@@ -12,7 +12,7 @@ import {
 } from "@omriashke/dynamico-core";
 import { render } from "./render.js";
 import { validationHostScope } from "./hostScope.js";
-import { resolveRegistryComponentStub, wrapWithBookProviders } from "./registryStubs.js";
+import { resolveRegistryComponentStub, resolveRegisteredComponentStubModule, wrapWithBookProviders } from "./registryStubs.js";
 import * as RNMock from "./mocks/react-native.js";
 import * as SafeAreaMock from "./mocks/safe-area-context.js";
 import * as SvgMock from "./mocks/react-native-svg.js";
@@ -104,8 +104,8 @@ function requireRelative(
 ): unknown {
   const base = resolveRelativeComponentName(specifier);
   if (base) {
-    const stub = resolveRegistryComponentStub(base);
-    if (stub) return stub;
+    const special = resolveRegistryComponentStub(base);
+    if (special) return special;
     if (registeredComponents?.length) {
       const registered = new Set(registeredComponents);
       if (!registered.has(base)) {
@@ -113,6 +113,7 @@ function requireRelative(
           `relative import '${specifier}' resolves to unregistered component '${base}'`,
         );
       }
+      return resolveRegisteredComponentStubModule(base);
     }
   }
   return makeStubModule(`relative:${specifier}`);

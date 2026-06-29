@@ -17,6 +17,8 @@ function createHostStub(): Record<string, unknown> {
     createGqlClient: () => gqlClient,
     publicGqlClient: gqlClient,
     loginImage: 1,
+    loginImageSource: { uri: 'asset:/loginImage.png', width: 1024, height: 1536 },
+    LoginHeroImage: () => null,
     MY_THEME_QUERY: "",
     UPDATE_THEME_MUTATION: "",
     FEED_QUERY: "",

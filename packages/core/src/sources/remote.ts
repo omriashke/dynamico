@@ -17,7 +17,14 @@ export interface RemoteSourceOptions {
    */
   headers?: () => Record<string, string>;
   /**
-   * When false, skip WebSocket entirely (HTTP fetch only).
+   * Enable WebSocket live-reload. When the server pushes a module update the
+   * client re-evaluates it and re-renders the component.
+   *
+   * Same-version pushes (e.g. on reconnect the server replays the current
+   * module) are deduplicated in the registry and are no-ops — no re-eval, no
+   * new function identity, no remount. Only a genuinely new version triggers
+   * a re-render.
+   *
    * @default true
    */
   webSocket?: boolean;

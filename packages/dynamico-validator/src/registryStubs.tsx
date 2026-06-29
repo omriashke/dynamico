@@ -4,6 +4,7 @@
  * still exercising real theme / animation contracts.
  */
 import * as React from "react";
+import * as RNMock from "./mocks/react-native.js";
 
 const THEME_COLORS = {
   primary: "#F53071",
@@ -102,6 +103,45 @@ const FACTORIES: Record<string, () => Record<string, unknown>> = {
 export function resolveRegistryComponentStub(name: string): Record<string, unknown> | undefined {
   const factory = FACTORIES[name];
   return factory ? factory() : undefined;
+}
+
+const registeredComponentStubs = new Map<string, React.ComponentType<Record<string, unknown>>>();
+
+/** Minimal React component for a registered peer during push validation. */
+export function createRegisteredComponentStub(
+  name: string,
+): React.ComponentType<Record<string, unknown>> {
+  let Stub = registeredComponentStubs.get(name);
+  if (!Stub) {
+    Stub = function RegisteredComponentStub(props: Record<string, unknown>) {
+      const label =
+        (typeof props.title === "string" && props.title) ||
+        (typeof props.label === "string" && props.label) ||
+        `[${name}]`;
+      return React.createElement(
+        RNMock.View,
+        null,
+        React.createElement(RNMock.Text, null, label),
+      );
+    };
+    Stub.displayName = `RegistryStub(${name})`;
+    registeredComponentStubs.set(name, Stub);
+  }
+  return Stub;
+}
+
+/** CommonJS module shape for `require("../ui/Button/Button")` etc. */
+export function createRegisteredComponentStubModule(name: string): Record<string, unknown> {
+  const Stub = createRegisteredComponentStub(name);
+  return { __esModule: true, default: Stub, [name]: Stub };
+}
+
+export function resolveRegisteredComponentStubModule(
+  name: string,
+): Record<string, unknown> | undefined {
+  const special = resolveRegistryComponentStub(name);
+  if (special) return special;
+  return createRegisteredComponentStubModule(name);
 }
 
 /** Provider components from book.config.json — same stubs used as wrappers. */
