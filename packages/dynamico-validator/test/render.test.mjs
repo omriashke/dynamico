@@ -75,6 +75,47 @@ test("runValidate survives when native console.error throws on object args", asy
   }
 });
 
+test("runValidate fails a push that renders an undefined element type", async () => {
+  // Simulates a broken import resolving to undefined and being used as JSX —
+  // React only warns ("Element type is invalid"), so without the guard this
+  // would ship a blank component.
+  const result = await runValidate({
+    name: "BadImport",
+    componentCode: `
+      var React = require("react");
+      var Missing = undefined;
+      function BadImport() {
+        return React.createElement(Missing, null);
+      }
+      module.exports = { default: BadImport };
+    `,
+    allowedScope: ["react"],
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.error?.phase, "render");
+  assert.match(result.error?.message ?? "", /type is invalid/i);
+});
+
+test("runValidate passes a default import of react-native-svg (interop)", async () => {
+  // Faithful to runtime: `import Svg from 'react-native-svg'` must resolve to
+  // the Svg component via interop, not undefined.
+  const result = await runValidate({
+    name: "SvgIcon",
+    componentCode: `
+      var React = require("react");
+      var __svg = require("react-native-svg");
+      var Svg = (__svg && __svg.__esModule ? __svg : { default: __svg }).default;
+      var Path = __svg.Path;
+      function SvgIcon() {
+        return React.createElement(Svg, null, React.createElement(Path, { d: "M0 0" }));
+      }
+      module.exports = { default: SvgIcon };
+    `,
+    allowedScope: ["react"],
+  });
+  assert.equal(result.ok, true);
+});
+
 test("runValidate still captures real render errors logged by React 19", async () => {
   const result = await runValidate({
     name: "Broken",

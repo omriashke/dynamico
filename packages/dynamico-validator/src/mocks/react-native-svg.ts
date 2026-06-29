@@ -35,26 +35,8 @@ export const Symbol = createSvgHost("Symbol");
 export const Image = createSvgHost("SvgImage");
 export const ForeignObject = createSvgHost("ForeignObject");
 
-export default {
-  Svg,
-  Circle,
-  Rect,
-  Path,
-  G,
-  Line,
-  Defs,
-  LinearGradient,
-  RadialGradient,
-  Stop,
-  ClipPath,
-  Text,
-  TSpan,
-  Polygon,
-  Polyline,
-  Ellipse,
-  Mask,
-  Use,
-  Symbol,
-  Image,
-  ForeignObject,
-};
+// Mirror the real `react-native-svg`: its default export is the `Svg`
+// component, not a namespace object. Keeping this faithful means a component
+// that does `import Svg from 'react-native-svg'` is validated against the same
+// shape it gets at runtime — so a broken default import fails the push.
+export default Svg;

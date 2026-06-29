@@ -1,6 +1,6 @@
 {
   "name": "@omriashke/dynamico-registry",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "description": "Reference registry for dynamico: compiles tsx, stores versions, broadcasts updates over WebSocket.",
   "license": "Apache-2.0",
   "type": "module",

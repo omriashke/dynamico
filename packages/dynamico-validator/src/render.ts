@@ -59,7 +59,12 @@ function captureReactRenderErrors<T>(fn: () => T): T {
       msg.includes("An error occurred in the") ||
       msg.includes("ReferenceError") ||
       msg.includes("TypeError") ||
-      msg.includes("is not defined")
+      msg.includes("is not defined") ||
+      // A failed/missing import (e.g. `import Svg from 'react-native-svg'`
+      // resolving to undefined) renders an element with an invalid type. React
+      // only warns; without this the push would silently ship a blank UI.
+      msg.includes("Element type is invalid") ||
+      msg.includes("type is invalid")
     ) {
       errors.push(msg);
     }
